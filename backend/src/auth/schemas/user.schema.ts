@@ -22,6 +22,9 @@ export class User {
 
   @Prop({ default: false })
   shareEnabled: boolean;
+
+  @Prop({ default: false })
+  blocked: boolean;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

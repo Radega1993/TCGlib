@@ -9,6 +9,7 @@ export interface EnvConfig {
   GOOGLE_CLIENT_SECRET: string;
   GOOGLE_REDIRECT_URI: string;
   AUTH_STATE_SECRET: string;
+  ADMIN_EMAILS: string;
 }
 
 function requiredString(config: Record<string, unknown>, key: string): string {
@@ -61,6 +62,7 @@ export function validateEnv(config: Record<string, unknown>): EnvConfig {
       optionalString(config, 'GOOGLE_REDIRECT_URI') ||
       `http://localhost:${port}/api/auth/google/callback`,
     AUTH_STATE_SECRET: stateSecret,
+    ADMIN_EMAILS: optionalString(config, 'ADMIN_EMAILS'),
   };
 }
 

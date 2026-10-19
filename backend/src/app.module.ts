@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { join } from 'path';
+import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { EnvConfig, validateEnv } from './config/env.validation';
@@ -28,6 +29,7 @@ import { LibraryModule } from './library/library.module';
     CatalogModule,
     AuthModule,
     LibraryModule,
+    AdminModule,
   ],
   controllers: [HealthController],
 })

@@ -97,6 +97,7 @@ export type PublicUser = {
   picture?: string;
   publicSlug?: string;
   shareEnabled: boolean;
+  admin: boolean;
 };
 
 export type SharedListPage = {
@@ -115,6 +116,42 @@ export type SharedCollection = {
   sets: CardSet[];
   owned: SharedListPage;
   wanted: SharedListPage;
+};
+
+export type AdminListCount = {
+  cards: number;
+  copies: number;
+  users?: number;
+};
+
+export type AdminUser = {
+  id: string;
+  email: string;
+  name: string;
+  picture?: string;
+  publicSlug?: string;
+  shareEnabled: boolean;
+  blocked: boolean;
+  admin: boolean;
+  createdAt?: string;
+  owned: AdminListCount;
+  wanted: AdminListCount;
+};
+
+export type AdminOverview = {
+  users: { total: number; blocked: number; sharing: number };
+  sessions: number;
+  library: { owned: AdminListCount; wanted: AdminListCount };
+  catalog: { sets: number; products: number; cards: number; sealed: number };
+  sync: {
+    status: "running" | "completed" | "failed";
+    startedAt: string;
+    finishedAt?: string;
+    cards: number;
+    sealed: number;
+    products: number;
+    error?: string;
+  } | null;
 };
 
 export type ShareQuery = CatalogQuery & {

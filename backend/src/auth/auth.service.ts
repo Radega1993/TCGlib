@@ -6,6 +6,7 @@ import { EnvConfig } from '../config/env.validation';
 import { LoginCode } from './schemas/login-code.schema';
 import { Session } from './schemas/session.schema';
 import { User } from './schemas/user.schema';
+import { BlockedAccountError } from './blocked-account.error';
 import { PublicUser } from './public-user';
 import {
   googleAuthorizationUrl,
@@ -83,12 +84,15 @@ export class AuthService {
       {
         $set: {
           email: profile.email,
-          name,
           ...(profile.picture ? { picture: profile.picture } : {}),
         },
+        $setOnInsert: { name },
       },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
+    if (user.blocked) {
+      throw new BlockedAccountError();
+    }
 
     const token = randomToken();
     const session = await this.sessions.create({
@@ -130,7 +134,7 @@ export class AuthService {
     if (!session) return null;
 
     const user = await this.users.findById(session.userId).lean();
-    if (!user) return null;
+    if (!user || user.blocked) return null;
     return this.toPublicUser(user);
   }
 
@@ -192,6 +196,7 @@ export class AuthService {
       picture: user.picture,
       publicSlug: user.publicSlug,
       shareEnabled: Boolean(user.shareEnabled),
+      admin: this.isAdminEmail(user.email),
     };
   }
 
@@ -202,6 +207,10 @@ export class AuthService {
       if (!exists) return slug;
     }
     throw new UnauthorizedException('No se pudo crear el enlace público');
+  }
+
+  isAdminEmail(email: string) {
+    return this.adminEmails.has(email.trim().toLowerCase());
   }
 
   async revokeToken(token: string) {
@@ -268,5 +277,15 @@ export class AuthService {
 
   private get secret() {
     return this.config.get('AUTH_STATE_SECRET');
+  }
+
+  private get adminEmails() {
+    return new Set(
+      this.config
+        .get('ADMIN_EMAILS')
+        .split(',')
+        .map((email: string) => email.trim().toLowerCase())
+        .filter(Boolean),
+    );
   }
 }

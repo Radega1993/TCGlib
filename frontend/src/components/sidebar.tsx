@@ -70,6 +70,20 @@ export function Sidebar({
             </Link>
           );
         })}
+        {user?.admin ? (
+          <Link
+            href="/admin"
+            aria-current={pathname?.startsWith("/admin") ? "page" : undefined}
+            onClick={onClose}
+            className={`inline-flex h-11 items-center rounded-xl px-3 text-sm font-medium ${
+              pathname?.startsWith("/admin")
+                ? "bg-white text-stone-950 ring-1 ring-stone-200"
+                : "text-stone-700"
+            }`}
+          >
+            Administración
+          </Link>
+        ) : null}
       </nav>
 
       <div className="mt-auto flex flex-col gap-3 pt-6">

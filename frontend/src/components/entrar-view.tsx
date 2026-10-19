@@ -7,6 +7,7 @@ const ERRORS: Record<string, string> = {
   google: "Google no ha podido completar el acceso. Vuelve a intentarlo.",
   sesion: "La sesión no es válida. Entra otra vez.",
   config: "El acceso con Google todavía no está configurado en el servidor.",
+  bloqueado: "Esta cuenta está bloqueada. Si crees que es un error, escribe a quien administra TCGlib.",
 };
 
 export async function EntrarView({

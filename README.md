@@ -44,7 +44,7 @@ En el servidor, dentro del repositorio:
 cp .env.production.example .env
 ```
 
-Rellena `MONGO_ROOT_PASSWORD`, `APITCG_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` y `AUTH_STATE_SECRET`. La contraseña de Mongo solo puede llevar letras y números.
+Rellena `MONGO_ROOT_PASSWORD`, `APITCG_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AUTH_STATE_SECRET` y `ADMIN_EMAILS`. La contraseña de Mongo solo puede llevar letras y números. `ADMIN_EMAILS` es la lista de correos de Google, separados por comas, que pueden abrir el panel de administración.
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build

@@ -13,6 +13,7 @@ import {
 import { Response } from 'express';
 import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
+import { BlockedAccountError } from './blocked-account.error';
 import { CurrentUser } from './current-user.decorator';
 import { ExchangeCodeDto } from './dto/exchange-code.dto';
 import { UpdateShareDto } from './dto/update-share.dto';
@@ -68,10 +69,11 @@ export class AuthController {
           `/api/auth/complete?code=${encodeURIComponent(login.exchange)}&return=${encodeURIComponent(login.returnTo)}`,
         ),
       );
-    } catch {
+    } catch (error) {
+      const reason = error instanceof BlockedAccountError ? 'bloqueado' : 'google';
       return res.redirect(
         this.authService.webUrl(
-          `/entrar?error=google&return=${encodeURIComponent(returnTo)}`,
+          `/entrar?error=${reason}&return=${encodeURIComponent(returnTo)}`,
         ),
       );
     }

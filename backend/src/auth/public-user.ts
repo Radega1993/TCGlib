@@ -5,6 +5,7 @@ export type PublicUser = {
   picture?: string;
   publicSlug?: string;
   shareEnabled: boolean;
+  admin: boolean;
 };
 
 export type AuthenticatedRequest = {
