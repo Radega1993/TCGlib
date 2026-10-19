@@ -73,6 +73,7 @@ services:
     environment:
       API_URL: https://apitcg.radega.com
       API_INTERNAL_URL: http://api:3001
+      WEB_ORIGIN: https://tcglib.radega.com
     networks:
       - internal
       - web

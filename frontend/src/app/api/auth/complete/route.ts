@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { serverApiUrl } from "@/lib/api";
 import { safeNextPath } from "@/lib/catalog-query";
+import { publicOrigin } from "@/lib/public-origin";
 import { SESSION_COOKIE } from "@/lib/session";
 
 export async function GET(request: NextRequest) {
@@ -8,7 +9,7 @@ export async function GET(request: NextRequest) {
   const returnTo = safeNextPath(request.nextUrl.searchParams.get("return") ?? undefined);
   const failed = () =>
     NextResponse.redirect(
-      new URL(`/entrar?error=sesion&return=${encodeURIComponent(returnTo)}`, request.url),
+      new URL(`/entrar?error=sesion&return=${encodeURIComponent(returnTo)}`, publicOrigin(request)),
     );
 
   if (code.length < 20) return failed();
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
   const token = body?.data?.token;
   if (!token) return failed();
 
-  const redirect = NextResponse.redirect(new URL(returnTo, request.url));
+  const redirect = NextResponse.redirect(new URL(returnTo, publicOrigin(request)));
   redirect.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",

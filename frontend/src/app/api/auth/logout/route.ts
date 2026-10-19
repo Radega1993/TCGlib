@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { serverApiUrl } from "@/lib/api";
+import { publicOrigin } from "@/lib/public-origin";
 import { SESSION_COOKIE } from "@/lib/session";
 
 export async function POST(request: NextRequest) {
@@ -12,7 +13,7 @@ export async function POST(request: NextRequest) {
     }).catch(() => null);
   }
 
-  const redirect = NextResponse.redirect(new URL("/", request.url), 303);
+  const redirect = NextResponse.redirect(new URL("/", publicOrigin(request)), 303);
   redirect.cookies.delete(SESSION_COOKIE);
   return redirect;
 }
