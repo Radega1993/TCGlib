@@ -15,10 +15,10 @@ export async function EntrarView({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const user = await getCurrentUser();
-  if (user) redirect("/perfil");
+  if (user) redirect("/biblioteca");
 
   const params = await searchParams;
-  const returnTo = safeNextPath(first(params.return), "/perfil");
+  const returnTo = safeNextPath(first(params.return), "/biblioteca");
   const error = first(params.error);
   const status = await getAuthStatus();
   const message = error ? ERRORS[error] : undefined;

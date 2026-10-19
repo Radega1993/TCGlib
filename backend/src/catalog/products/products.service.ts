@@ -4,7 +4,12 @@ import { Model, PipelineStage } from 'mongoose';
 import { ONE_PIECE_SLUG } from '../sync/catalog-sync.service';
 import { Product } from '../schemas/product.schema';
 import { ListProductsQueryDto } from './dto/list-products.query';
-import { buildProductFilter, escapeRegex, orderValues } from './product-filter';
+import {
+  buildProductFilter,
+  escapeRegex,
+  orderValues,
+  ProductFilterInput,
+} from './product-filter';
 
 const COLOR_ORDER = ['Red', 'Green', 'Blue', 'Purple', 'Black', 'Yellow'];
 const RARITY_ORDER = ['C', 'UC', 'R', 'SR', 'SEC', 'L', 'PR', 'TR', 'DON!!'];
@@ -162,6 +167,93 @@ export class ProductsService {
       .select('externalId name code rarity color set images')
       .lean();
   }
+
+  async pageByExternalIds(
+    externalIds: number[],
+    query: ProductFilterInput,
+    page: number,
+    limit: number,
+  ) {
+    if (externalIds.length === 0) {
+      return { products: [] as Product[], matchedIds: [] as number[], page: 1, limit };
+    }
+
+    const filter = buildProductFilter({ ...query, type: 'card' });
+    filter.externalId = { $in: externalIds };
+    const matched = await this.productModel
+      .find(filter)
+      .select('externalId')
+      .lean();
+    const matchedIds = matched.map((product) => product.externalId);
+    const totalPages = Math.max(1, Math.ceil(matchedIds.length / limit));
+    const current = Math.min(Math.max(page, 1), totalPages);
+    const products =
+      matchedIds.length === 0
+        ? []
+        : await this.productModel
+            .find(filter)
+            .collation({ locale: 'es' })
+            .sort({ name: 1, code: 1 })
+            .skip((current - 1) * limit)
+            .limit(limit)
+            .select('externalId name code rarity color set images')
+            .lean();
+
+    return { products, matchedIds, page: current, limit };
+  }
+
+  async facetsForExternalIds(externalIds: number[]) {
+    if (externalIds.length === 0) {
+      return emptyFacets();
+    }
+
+    const [result] = await this.productModel.aggregate<FacetGroups>([
+      { $match: { externalId: { $in: externalIds }, type: 'card' } },
+      {
+        $facet: {
+          color: tokenFacet('color'),
+          rarity: valueFacet('rarity'),
+          cardType: valueFacet('cardType'),
+          attribute: tokenFacet('cardAttribute'),
+          cost: valueFacet('cost'),
+        },
+      },
+    ]);
+    const ids = (groups?: { _id: string }[]) =>
+      groups?.map((item) => item._id) ?? [];
+
+    return {
+      color: orderValues(ids(result?.color), COLOR_ORDER),
+      rarity: orderValues(ids(result?.rarity), RARITY_ORDER),
+      cardType: orderValues(ids(result?.cardType), CARD_TYPE_ORDER),
+      attribute: orderValues(ids(result?.attribute), ATTRIBUTE_ORDER),
+      cost: orderValues(ids(result?.cost), COST_ORDER),
+    };
+  }
+
+  async setsForExternalIds(externalIds: number[]) {
+    if (externalIds.length === 0) return [];
+    const sets = await this.productModel.aggregate<{
+      _id: string;
+      name: string;
+      code?: string;
+    }>([
+      { $match: { externalId: { $in: externalIds }, type: 'card' } },
+      {
+        $group: {
+          _id: '$set.externalId',
+          name: { $first: '$set.name' },
+          code: { $first: '$set.code' },
+        },
+      },
+      { $sort: { code: 1, name: 1 } },
+    ]);
+    return sets.map((set) => ({
+      externalId: set._id,
+      name: set.name,
+      code: set.code,
+    }));
+  }
 }
 
 type FacetGroups = {
@@ -187,6 +279,16 @@ function tokenFacet(field: string): PipelineStage.FacetPipelineStage[] {
     { $match: { parts: { $gt: '' } } },
     { $group: { _id: '$parts' } },
   ];
+}
+
+function emptyFacets() {
+  return {
+    color: [] as string[],
+    rarity: [] as string[],
+    cardType: [] as string[],
+    attribute: [] as string[],
+    cost: [] as string[],
+  };
 }
 
 function regexMatch(input: string, regex: string) {

@@ -12,7 +12,11 @@ export function sha256(value: string) {
   return createHash('sha256').update(value).digest('hex');
 }
 
-export function safeReturnPath(value: unknown, fallback = '/perfil') {
+export function isPublicSlug(value: string) {
+  return /^[A-Za-z0-9_-]{8,32}$/.test(value);
+}
+
+export function safeReturnPath(value: unknown, fallback = '/biblioteca') {
   if (typeof value !== 'string') return fallback;
   if (value.length === 0 || value.length > 300) return fallback;
   if (!value.startsWith('/') || value.startsWith('//')) return fallback;

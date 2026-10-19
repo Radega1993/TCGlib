@@ -13,6 +13,10 @@ export function formatCount(value: number) {
   return counts.format(value);
 }
 
+export function collectionLabel(cards: number, copies: number) {
+  return `${formatCount(cards)} ${cards === 1 ? "carta" : "cartas"} · ${formatCount(copies)} ${copies === 1 ? "copia" : "copias"}`;
+}
+
 export function typeLabel(type?: string) {
   if (type === "card") return "Carta";
   if (type === "sealed") return "Sellado";

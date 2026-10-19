@@ -3,6 +3,8 @@ export type PublicUser = {
   email: string;
   name: string;
   picture?: string;
+  publicSlug?: string;
+  shareEnabled: boolean;
 };
 
 export type AuthenticatedRequest = {

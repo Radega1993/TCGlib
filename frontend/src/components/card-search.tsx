@@ -11,11 +11,13 @@ export function CardSearch({
   text,
   onTextChange,
   onSearch,
+  suggestionHref,
 }: {
   query: CatalogQuery;
   text: string;
   onTextChange: (value: string) => void;
   onSearch: () => void;
+  suggestionHref?: (suggestion: CardSuggestion) => string;
 }) {
   const router = useRouter();
   const listId = useId();
@@ -77,8 +79,14 @@ export function CardSearch({
   const showList = open && term.length >= 2;
   const returnTo = catalogHref(query);
 
+  function destination(suggestion: CardSuggestion) {
+    return suggestionHref
+      ? suggestionHref(suggestion)
+      : productHref(suggestion.externalId, returnTo);
+  }
+
   function openCard(suggestion: CardSuggestion) {
-    router.push(productHref(suggestion.externalId, returnTo));
+    router.push(destination(suggestion));
   }
 
   return (
@@ -172,7 +180,7 @@ export function CardSearch({
                       id={`${listId}-${suggestion.externalId}`}
                       role="option"
                       aria-selected={index === active}
-                      href={productHref(suggestion.externalId, returnTo)}
+                      href={destination(suggestion)}
                       className={`grid grid-cols-[2.5rem_minmax(0,0.8fr)_minmax(0,1.2fr)] items-center gap-3 px-3 py-2 ${
                         index === active ? "bg-rose-50" : "hover:bg-stone-50"
                       }`}

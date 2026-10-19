@@ -1,4 +1,4 @@
-import { CatalogQuery } from "@/lib/types";
+import { CatalogQuery, ShareQuery } from "@/lib/types";
 
 const LIST_LIMIT = {
   color: 8,
@@ -28,6 +28,41 @@ export function parseCatalogQuery(
 }
 
 export function catalogHref(query: CatalogQuery, page = query.page) {
+  const params = filterParams(query, page);
+  const search = params.toString();
+  return search ? `/?${search}` : "/";
+}
+
+export function parseShareQuery(
+  raw: Record<string, string | string[] | undefined>,
+): ShareQuery {
+  const wanted = Number(first(raw.wanted) ?? 1);
+  return {
+    ...parseCatalogQuery(raw),
+    wantedPage: Number.isInteger(wanted) && wanted > 0 ? wanted : 1,
+  };
+}
+
+export function shareHref(slug: string, query: ShareQuery) {
+  const params = filterParams(query, query.page);
+  if (query.wantedPage > 1) params.set("wanted", String(query.wantedPage));
+  const search = params.toString();
+  return search ? `/u/${slug}?${search}` : `/u/${slug}`;
+}
+
+export function sameFilters(left: CatalogQuery, right: CatalogQuery) {
+  return (
+    left.q === right.q &&
+    left.set === right.set &&
+    sameList(left.color, right.color) &&
+    sameList(left.rarity, right.rarity) &&
+    sameList(left.cardType, right.cardType) &&
+    sameList(left.attribute, right.attribute) &&
+    sameList(left.cost, right.cost)
+  );
+}
+
+function filterParams(query: CatalogQuery, page: number) {
   const params = new URLSearchParams();
   if (query.q) params.set("q", query.q);
   if (query.set) params.set("set", query.set);
@@ -37,8 +72,11 @@ export function catalogHref(query: CatalogQuery, page = query.page) {
   setList(params, "attribute", query.attribute);
   setList(params, "cost", query.cost);
   if (page > 1) params.set("page", String(page));
-  const search = params.toString();
-  return search ? `/?${search}` : "/";
+  return params;
+}
+
+function sameList(left: string[], right: string[]) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 export function toggleValue(values: string[], value: string) {
@@ -68,7 +106,7 @@ export function productHref(externalId: number, returnTo: string) {
     : `/products/${externalId}`;
 }
 
-export function safeNextPath(value: string | undefined, fallback = "/perfil") {
+export function safeNextPath(value: string | undefined, fallback = "/biblioteca") {
   if (!value || value.length > 300) return fallback;
   if (!value.startsWith("/") || value.startsWith("//")) return fallback;
   if (value.includes("://") || /[\s\\]/.test(value)) return fallback;

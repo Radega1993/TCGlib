@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { serverApiUrl } from "@/lib/api";
 import { safeNextPath } from "@/lib/catalog-query";
 import { SESSION_COOKIE } from "@/lib/session";
-
-const API_URL = process.env.API_URL ?? "http://localhost:3001";
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code") ?? "";
@@ -14,7 +13,7 @@ export async function GET(request: NextRequest) {
 
   if (code.length < 20) return failed();
 
-  const response = await fetch(`${API_URL}/api/auth/exchange`, {
+  const response = await fetch(`${serverApiUrl()}/api/auth/exchange`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ code }),

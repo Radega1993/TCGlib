@@ -61,10 +61,10 @@ export async function CatalogBrowser({
         </ul>
       )}
       <Pagination
-        query={query}
         page={products.page}
         total={products.total}
         limit={products.limit}
+        hrefFor={(page) => catalogHref(query, page)}
       />
     </div>
   );

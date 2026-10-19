@@ -1,5 +1,6 @@
 import {
   googleAuthorizationUrl,
+  isPublicSlug,
   safeReturnPath,
   signState,
   verifyState,
@@ -23,12 +24,13 @@ describe('auth state', () => {
   });
 
   it('only allows internal return paths', () => {
-    expect(safeReturnPath('/perfil?lista=buscando')).toBe(
-      '/perfil?lista=buscando',
-    );
-    expect(safeReturnPath('https://evil.example')).toBe('/perfil');
-    expect(safeReturnPath('//evil.example')).toBe('/perfil');
-    expect(safeReturnPath('/entrar')).toBe('/perfil');
+    expect(safeReturnPath('/biblioteca')).toBe('/biblioteca');
+    expect(safeReturnPath('https://evil.example')).toBe('/biblioteca');
+    expect(safeReturnPath('//evil.example')).toBe('/biblioteca');
+    expect(safeReturnPath('/entrar')).toBe('/biblioteca');
+    expect(isPublicSlug('abcDEF12_xyz')).toBe(true);
+    expect(isPublicSlug('corto')).toBe(false);
+    expect(isPublicSlug('con espacio')).toBe(false);
   });
 });
 

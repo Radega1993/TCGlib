@@ -95,6 +95,30 @@ export type PublicUser = {
   email: string;
   name: string;
   picture?: string;
+  publicSlug?: string;
+  shareEnabled: boolean;
+};
+
+export type SharedListPage = {
+  total: number;
+  copies: number;
+  page: number;
+  limit: number;
+  entries: LibraryEntry[];
+};
+
+export type SharedCollection = {
+  name: string;
+  picture?: string;
+  counts: LibraryCounts;
+  facets: CatalogFacets;
+  sets: CardSet[];
+  owned: SharedListPage;
+  wanted: SharedListPage;
+};
+
+export type ShareQuery = CatalogQuery & {
+  wantedPage: number;
 };
 
 export type LibraryList = "owned" | "wanted";

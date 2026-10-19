@@ -31,7 +31,11 @@ export function LibraryQuantity({
       const result = await setCardQuantity(externalId, list, next);
       if (!result.ok) {
         setValue(previous);
-        if (result.error === "auth") router.push("/entrar?return=/perfil");
+        if (result.error === "auth") {
+          router.push(
+            `/entrar?return=${encodeURIComponent(list === "wanted" ? "/deseados" : "/biblioteca")}`,
+          );
+        }
         return;
       }
       router.refresh();

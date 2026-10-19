@@ -1,0 +1,100 @@
+version: "3.3"
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: tcglib-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-tcglib}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?define MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-tcglib}
+    volumes:
+      - tcglib_mongo_data:/data/db
+    networks:
+      - internal
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet -u \"$$MONGO_INITDB_ROOT_USERNAME\" -p \"$$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval \"db.adminCommand('ping').ok\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+    container_name: tcglib-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PORT: 3001
+      MONGODB_URI: "mongodb://${MONGO_ROOT_USERNAME:-tcglib}:${MONGO_ROOT_PASSWORD}@mongodb:27017/${MONGO_DATABASE:-tcglib}?authSource=admin"
+      CORS_ORIGIN: https://tcglib.radega.com
+      WEB_ORIGIN: https://tcglib.radega.com
+      GOOGLE_REDIRECT_URI: https://apitcg.radega.com/api/auth/google/callback
+    networks:
+      - internal
+      - web
+    depends_on:
+      - mongodb
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/api/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    labels:
+      - traefik.enable=true
+      - traefik.frontend.rule=Host:apitcg.radega.com
+      - traefik.port=3001
+      - traefik.docker.network=web
+      - traefik.frontend.protocol=http
+      - traefik.frontend.entryPoints=http,https
+      - traefik.backend=tcglib-api
+      - traefik.backend.loadbalancer.swarm=false
+      - traefik.frontend.priority=10
+      - traefik.backend.healthcheck.path=/api/health
+      - traefik.backend.healthcheck.interval=30s
+
+  web:
+    build:
+      context: ./frontend
+    container_name: tcglib-web
+    restart: unless-stopped
+    environment:
+      API_URL: https://apitcg.radega.com
+      API_INTERNAL_URL: http://api:3001
+    networks:
+      - internal
+      - web
+    depends_on:
+      - api
+    labels:
+      - traefik.enable=true
+      - traefik.frontend.rule=Host:tcglib.radega.com
+      - traefik.port=3000
+      - traefik.docker.network=web
+      - traefik.frontend.protocol=http
+      - traefik.frontend.entryPoints=http,https
+      - traefik.backend=tcglib-web
+      - traefik.backend.loadbalancer.swarm=false
+      - traefik.frontend.priority=10
+      - traefik.backend.healthcheck.path=/
+      - traefik.backend.healthcheck.interval=30s
+
+networks:
+  internal:
+  web:
+    external: true
+
+volumes:
+  tcglib_mongo_data:

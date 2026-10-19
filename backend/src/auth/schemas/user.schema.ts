@@ -16,6 +16,12 @@ export class User {
 
   @Prop()
   picture?: string;
+
+  @Prop({ unique: true, sparse: true })
+  publicSlug?: string;
+
+  @Prop({ default: false })
+  shareEnabled: boolean;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

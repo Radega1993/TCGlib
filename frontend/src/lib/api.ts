@@ -8,7 +8,13 @@ import {
   Product,
 } from "@/lib/types";
 
-const API_URL = process.env.API_URL ?? "http://localhost:3001";
+export function publicApiUrl() {
+  return process.env["API_URL"] || "http://localhost:3001";
+}
+
+export function serverApiUrl() {
+  return process.env["API_INTERNAL_URL"] || publicApiUrl();
+}
 
 export class ApiError extends Error {
   constructor(
@@ -20,7 +26,7 @@ export class ApiError extends Error {
 }
 
 export function getApiUrl() {
-  return API_URL;
+  return serverApiUrl();
 }
 
 export function getProducts(query: CatalogQuery) {
@@ -66,7 +72,7 @@ export function getStats() {
 async function apiGet<T>(path: string): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(`${API_URL}${path}`, { cache: "no-store" });
+    response = await fetch(`${serverApiUrl()}${path}`, { cache: "no-store" });
   } catch {
     throw new ApiError(0, path);
   }

@@ -1,18 +1,18 @@
 import Link from "next/link";
-import { catalogHref } from "@/lib/catalog-query";
 import { formatCount } from "@/lib/format";
-import { CatalogQuery } from "@/lib/types";
 
 export function Pagination({
-  query,
   page,
   total,
   limit,
+  hrefFor,
+  label = "Paginación del catálogo",
 }: {
-  query: CatalogQuery;
   page: number;
   total: number;
   limit: number;
+  hrefFor: (page: number) => string;
+  label?: string;
 }) {
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const current = Math.min(page, totalPages);
@@ -21,7 +21,7 @@ export function Pagination({
 
   return (
     <nav
-      aria-label="Paginación del catálogo"
+      aria-label={label}
       className="mt-6 flex flex-col gap-3 border-t border-stone-200 pt-4 sm:flex-row sm:items-center sm:justify-between"
     >
       <p className="text-sm text-stone-600">
@@ -31,7 +31,7 @@ export function Pagination({
       </p>
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
         <PageLink
-          href={catalogHref(query, current - 1)}
+          href={hrefFor(current - 1)}
           disabled={current <= 1}
         >
           Anterior
@@ -40,7 +40,7 @@ export function Pagination({
           {current} / {formatCount(totalPages)}
         </p>
         <PageLink
-          href={catalogHref(query, current + 1)}
+          href={hrefFor(current + 1)}
           disabled={current >= totalPages}
           align="end"
         >

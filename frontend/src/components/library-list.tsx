@@ -3,37 +3,47 @@ import Link from "next/link";
 import { LibraryQuantity } from "@/components/library-quantity";
 import { productHref } from "@/lib/catalog-query";
 import { colorClass, splitColors } from "@/lib/format";
-import { LibraryEntry, LibraryList } from "@/lib/types";
+import { LibraryEntry, type LibraryList } from "@/lib/types";
 
 export function LibraryList({
   entries,
   list,
+  readOnly = false,
+  returnTo = list === "wanted" ? "/deseados" : "/biblioteca",
 }: {
   entries: LibraryEntry[];
   list: LibraryList;
+  readOnly?: boolean;
+  returnTo?: string;
 }) {
   if (entries.length === 0) {
     return (
       <div className="rounded-2xl bg-white px-4 py-10 text-center ring-1 ring-stone-200">
         <p className="text-sm text-stone-700">
           {list === "owned"
-            ? "Todavía no has guardado cartas en tu biblioteca."
-            : "No estás buscando ninguna carta."}
+            ? readOnly
+              ? "Esta biblioteca no tiene cartas."
+              : "Todavía no has guardado cartas en tu biblioteca."
+            : readOnly
+              ? "Esta lista de deseos está vacía."
+              : "No estás buscando ninguna carta."}
         </p>
-        <p className="mt-1 text-sm text-stone-500">
-          Abre una carta del catálogo y ajusta {list === "owned" ? "Tengo" : "Busco"}.
-        </p>
-        <Link
-          href="/"
-          className="mt-4 inline-flex h-11 items-center rounded-xl bg-stone-900 px-4 text-sm font-medium text-white"
-        >
-          Ir al catálogo
-        </Link>
+        {readOnly ? null : (
+          <>
+            <p className="mt-1 text-sm text-stone-500">
+              Abre una carta del catálogo y ajusta {list === "owned" ? "Tengo" : "Busco"}.
+            </p>
+            <Link
+              href="/"
+              className="mt-4 inline-flex h-11 items-center rounded-xl bg-stone-900 px-4 text-sm font-medium text-white"
+            >
+              Ir al catálogo
+            </Link>
+          </>
+        )}
       </div>
     );
   }
-
-  const returnTo = list === "wanted" ? "/perfil?lista=buscando" : "/perfil";
 
   return (
     <ul className="flex flex-col gap-3">
@@ -81,11 +91,17 @@ export function LibraryList({
                   ))}
                 </p>
               </div>
-              <LibraryQuantity
-                externalId={entry.product.externalId}
-                list={list}
-                quantity={entry.quantity}
-              />
+              {readOnly ? (
+                <p className="text-sm font-medium text-stone-800">
+                  {entry.quantity} {entry.quantity === 1 ? "copia" : "copias"}
+                </p>
+              ) : (
+                <LibraryQuantity
+                  externalId={entry.product.externalId}
+                  list={list}
+                  quantity={entry.quantity}
+                />
+              )}
             </div>
           </li>
         );

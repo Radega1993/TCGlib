@@ -1,14 +1,22 @@
 import { cookies } from "next/headers";
 import { cache } from "react";
-import { LibraryCounts, LibraryEntry, LibraryList, PublicUser } from "@/lib/types";
+import { serverApiUrl } from "@/lib/api";
+import { shareHref } from "@/lib/catalog-query";
+import {
+  LibraryCounts,
+  LibraryEntry,
+  LibraryList,
+  PublicUser,
+  SharedCollection,
+  ShareQuery,
+} from "@/lib/types";
 
-const API_URL = process.env.API_URL ?? "http://localhost:3001";
 export const SESSION_COOKIE = "tcglib_session";
 
 export const getCurrentUser = cache(async (): Promise<PublicUser | null> => {
   const token = await readSessionToken();
   if (!token) return null;
-  const response = await fetch(`${API_URL}/api/me`, {
+  const response = await fetch(`${serverApiUrl()}/api/me`, {
     headers: { authorization: `Bearer ${token}` },
     cache: "no-store",
   }).catch(() => null);
@@ -18,7 +26,7 @@ export const getCurrentUser = cache(async (): Promise<PublicUser | null> => {
 });
 
 export async function getAuthStatus() {
-  const response = await fetch(`${API_URL}/api/auth/status`, {
+  const response = await fetch(`${serverApiUrl()}/api/auth/status`, {
     cache: "no-store",
   }).catch(() => null);
   if (!response?.ok) return { google: false, online: false };
@@ -29,7 +37,7 @@ export async function getAuthStatus() {
 export async function getLibrary(list: LibraryList) {
   const token = await readSessionToken();
   if (!token) return null;
-  const response = await fetch(`${API_URL}/api/me/library?list=${list}`, {
+  const response = await fetch(`${serverApiUrl()}/api/me/library?list=${list}`, {
     headers: { authorization: `Bearer ${token}` },
     cache: "no-store",
   });
@@ -42,10 +50,23 @@ export async function getLibrary(list: LibraryList) {
   };
 }
 
+export async function getSharedCollection(slug: string, query: ShareQuery) {
+  const href = shareHref(slug, query);
+  const search = href.includes("?") ? href.slice(href.indexOf("?")) : "";
+  const response = await fetch(
+    `${serverApiUrl()}/api/share/${encodeURIComponent(slug)}${search}`,
+    { cache: "no-store" },
+  ).catch(() => null);
+  if (!response || response.status === 404) return null;
+  if (!response.ok) throw new Error("share");
+  const body = (await response.json()) as { data: SharedCollection };
+  return body.data;
+}
+
 export async function getCardCounts(externalId: number) {
   const token = await readSessionToken();
   if (!token) return null;
-  const response = await fetch(`${API_URL}/api/me/library/card/${externalId}`, {
+  const response = await fetch(`${serverApiUrl()}/api/me/library/card/${externalId}`, {
     headers: { authorization: `Bearer ${token}` },
     cache: "no-store",
   }).catch(() => null);

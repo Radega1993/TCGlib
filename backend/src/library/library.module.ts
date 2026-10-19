@@ -4,6 +4,7 @@ import { AuthModule } from '../auth/auth.module';
 import { CatalogModule } from '../catalog/catalog.module';
 import { LibraryController } from './library.controller';
 import { LibraryService } from './library.service';
+import { ShareController } from './share.controller';
 import {
   LibraryEntry,
   LibraryEntrySchema,
@@ -17,7 +18,7 @@ import {
       { name: LibraryEntry.name, schema: LibraryEntrySchema },
     ]),
   ],
-  controllers: [LibraryController],
+  controllers: [LibraryController, ShareController],
   providers: [LibraryService],
 })
 export class LibraryModule {}

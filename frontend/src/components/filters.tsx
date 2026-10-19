@@ -6,6 +6,8 @@ import { CardSearch } from "@/components/card-search";
 import {
   activeFilterCount,
   catalogHref,
+  sameFilters,
+  shareHref,
   toggleValue,
 } from "@/lib/catalog-query";
 import {
@@ -21,10 +23,12 @@ export function Filters({
   sets,
   facets,
   query,
+  share,
 }: {
   sets: CardSet[];
   facets: CatalogFacets;
   query: CatalogQuery;
+  share?: { slug: string; wantedPage: number };
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -47,6 +51,14 @@ export function Filters({
     query.cost.length +
     (query.set ? 1 : 0);
 
+  function destination(next: CatalogQuery) {
+    if (!share) return catalogHref(next);
+    return shareHref(share.slug, {
+      ...next,
+      wantedPage: sameFilters(query, next) ? share.wantedPage : 1,
+    });
+  }
+
   function apply(patch: Partial<CatalogQuery> = {}) {
     const next: CatalogQuery = {
       ...query,
@@ -55,14 +67,23 @@ export function Filters({
       page: 1,
     };
     startTransition(() => {
-      router.push(catalogHref(next));
+      router.push(destination(next));
     });
   }
 
   function clear() {
     setText("");
     startTransition(() => {
-      router.push("/");
+      router.push(
+        destination({
+          color: [],
+          rarity: [],
+          cardType: [],
+          attribute: [],
+          cost: [],
+          page: 1,
+        }),
+      );
     });
   }
 
@@ -76,6 +97,16 @@ export function Filters({
         text={text}
         onTextChange={setText}
         onSearch={() => apply()}
+        suggestionHref={
+          share
+            ? (suggestion) =>
+                destination({
+                  ...query,
+                  q: suggestion.code ?? suggestion.name,
+                  page: 1,
+                })
+            : undefined
+        }
       />
       <button
         type="button"
@@ -92,6 +123,7 @@ export function Filters({
         <span className="ml-auto text-stone-500">{open ? "Ocultar" : "Mostrar"}</span>
       </button>
       <div className={`${open ? "flex" : "hidden"} flex-col gap-4 sm:flex`}>
+        {facets.color.length > 0 ? (
         <FilterGroup label="Color" hint="incluye multicolor">
           {facets.color.map((color) => (
             <Chip
@@ -106,6 +138,8 @@ export function Filters({
             </Chip>
           ))}
         </FilterGroup>
+        ) : null}
+        {facets.rarity.length > 0 ? (
         <FilterGroup label="Rareza">
           {facets.rarity.map((rarity) => (
             <Chip
@@ -118,6 +152,8 @@ export function Filters({
             </Chip>
           ))}
         </FilterGroup>
+        ) : null}
+        {facets.cardType.length > 0 ? (
         <FilterGroup label="Tipo de carta">
           {facets.cardType.map((cardType) => (
             <Chip
@@ -131,6 +167,8 @@ export function Filters({
             </Chip>
           ))}
         </FilterGroup>
+        ) : null}
+        {facets.attribute.length > 0 ? (
         <FilterGroup label="Atributo">
           {facets.attribute.map((attribute) => (
             <Chip
@@ -145,6 +183,8 @@ export function Filters({
             </Chip>
           ))}
         </FilterGroup>
+        ) : null}
+        {facets.cost.length > 0 ? (
         <FilterGroup label="Coste">
           {facets.cost.map((cost) => (
             <Chip
@@ -157,6 +197,8 @@ export function Filters({
             </Chip>
           ))}
         </FilterGroup>
+        ) : null}
+        {sets.length > 0 ? (
         <label className="block">
           <span className="mb-2 block text-xs font-medium uppercase tracking-wide text-stone-500">
             Set
@@ -174,6 +216,7 @@ export function Filters({
             ))}
           </select>
         </label>
+        ) : null}
         {selected > 0 || query.q ? (
           <button
             type="button"

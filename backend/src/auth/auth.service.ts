@@ -9,6 +9,7 @@ import { User } from './schemas/user.schema';
 import { PublicUser } from './public-user';
 import {
   googleAuthorizationUrl,
+  isPublicSlug,
   randomToken,
   safeReturnPath,
   sha256,
@@ -130,12 +131,77 @@ export class AuthService {
 
     const user = await this.users.findById(session.userId).lean();
     if (!user) return null;
+    return this.toPublicUser(user);
+  }
+
+  async publicProfile(slug: string) {
+    if (!isPublicSlug(slug)) return null;
+    const user = await this.users
+      .findOne({ publicSlug: slug, shareEnabled: true })
+      .select('name picture')
+      .lean();
+    if (!user) return null;
+    return {
+      id: user._id.toString(),
+      name: user.name,
+      picture: user.picture,
+    };
+  }
+
+  async setShare(userId: string, enabled: boolean) {
+    const user = await this.users.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('La sesión no es válida');
+    }
+    if (enabled && !user.publicSlug) {
+      user.publicSlug = await this.createUniqueSlug();
+    }
+    user.shareEnabled = enabled;
+    await user.save();
+    return {
+      publicSlug: user.publicSlug,
+      shareEnabled: user.shareEnabled,
+    };
+  }
+
+  async resetShare(userId: string) {
+    const publicSlug = await this.createUniqueSlug();
+    const user = await this.users.findByIdAndUpdate(
+      userId,
+      { $set: { publicSlug, shareEnabled: true } },
+      { new: true },
+    );
+    if (!user) {
+      throw new UnauthorizedException('La sesión no es válida');
+    }
+    return { publicSlug: user.publicSlug, shareEnabled: true };
+  }
+
+  private toPublicUser(user: {
+    _id: { toString(): string };
+    email: string;
+    name: string;
+    picture?: string;
+    publicSlug?: string;
+    shareEnabled?: boolean;
+  }): PublicUser {
     return {
       id: user._id.toString(),
       email: user.email,
       name: user.name,
       picture: user.picture,
+      publicSlug: user.publicSlug,
+      shareEnabled: Boolean(user.shareEnabled),
     };
+  }
+
+  private async createUniqueSlug() {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const slug = randomToken(9);
+      const exists = await this.users.exists({ publicSlug: slug });
+      if (!exists) return slug;
+    }
+    throw new UnauthorizedException('No se pudo crear el enlace público');
   }
 
   async revokeToken(token: string) {

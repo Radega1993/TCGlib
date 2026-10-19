@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Post,
+  Put,
   Query,
   Req,
   Res,
@@ -14,6 +15,7 @@ import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './current-user.decorator';
 import { ExchangeCodeDto } from './dto/exchange-code.dto';
+import { UpdateShareDto } from './dto/update-share.dto';
 import { AuthenticatedRequest, PublicUser } from './public-user';
 import { safeReturnPath } from './state-token';
 
@@ -50,7 +52,7 @@ export class AuthController {
     @Res() res: Response,
   ) {
     const payload = state ? this.authService.readState(state) : null;
-    const returnTo = payload?.returnTo ?? '/perfil';
+    const returnTo = payload?.returnTo ?? '/biblioteca';
     if (error || !code || !state) {
       return res.redirect(
         this.authService.webUrl(
@@ -91,8 +93,22 @@ export class AuthController {
 @Controller('me')
 @UseGuards(AuthGuard)
 export class MeController {
+  constructor(private readonly authService: AuthService) {}
+
   @Get()
   me(@CurrentUser() user: PublicUser) {
     return { data: user };
+  }
+
+  @Put('share')
+  share(@CurrentUser() user: PublicUser, @Body() body: UpdateShareDto) {
+    return this.authService
+      .setShare(user.id, body.enabled)
+      .then((data) => ({ data }));
+  }
+
+  @Post('share/reset')
+  resetShare(@CurrentUser() user: PublicUser) {
+    return this.authService.resetShare(user.id).then((data) => ({ data }));
   }
 }
