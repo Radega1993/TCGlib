@@ -10,11 +10,13 @@ export function LibraryList({
   list,
   readOnly = false,
   returnTo = list === "wanted" ? "/deseados" : "/biblioteca",
+  copiesLabel,
 }: {
   entries: LibraryEntry[];
   list: LibraryList;
   readOnly?: boolean;
   returnTo?: string;
+  copiesLabel?: (quantity: number) => string;
 }) {
   if (entries.length === 0) {
     return (
@@ -93,14 +95,26 @@ export function LibraryList({
               </div>
               {readOnly ? (
                 <p className="text-sm font-medium text-stone-800">
-                  {entry.quantity} {entry.quantity === 1 ? "copia" : "copias"}
+                  {copiesLabel
+                    ? copiesLabel(entry.quantity)
+                    : `${entry.quantity} ${entry.quantity === 1 ? "copia" : "copias"}`}
+                  {!copiesLabel && list === "owned" && (entry.forTrade ?? 0) > 0
+                    ? ` · ${entry.forTrade} para intercambio`
+                    : ""}
                 </p>
               ) : (
-                <LibraryQuantity
-                  externalId={entry.product.externalId}
-                  list={list}
-                  quantity={entry.quantity}
-                />
+                <div className="flex flex-col gap-1">
+                  {list === "owned" && (entry.forTrade ?? 0) > 0 ? (
+                    <p className="text-xs text-stone-500">
+                      Reservadas {entry.quantity - (entry.forTrade ?? 0)} · Intercambio {entry.forTrade}
+                    </p>
+                  ) : null}
+                  <LibraryQuantity
+                    externalId={entry.product.externalId}
+                    list={list}
+                    quantity={entry.quantity}
+                  />
+                </div>
               )}
             </div>
           </li>

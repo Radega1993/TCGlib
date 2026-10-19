@@ -8,7 +8,7 @@ import { madridDay } from './madrid-time';
 import { ActivityDay } from './schemas/activity-day.schema';
 import { LoginCode } from './schemas/login-code.schema';
 import { Session } from './schemas/session.schema';
-import { User } from './schemas/user.schema';
+import { User, UserDocument } from './schemas/user.schema';
 import { BlockedAccountError } from './blocked-account.error';
 import { PublicUser } from './public-user';
 import {
@@ -38,7 +38,8 @@ export class AuthService {
     @InjectModel(User.name) private readonly users: Model<User>,
     @InjectModel(Session.name) private readonly sessions: Model<Session>,
     @InjectModel(LoginCode.name) private readonly loginCodes: Model<LoginCode>,
-    @InjectModel(ActivityDay.name) private readonly activityDays: Model<ActivityDay>,
+    @InjectModel(ActivityDay.name)
+    private readonly activityDays: Model<ActivityDay>,
   ) {}
 
   isGoogleConfigured() {
@@ -137,24 +138,36 @@ export class AuthService {
       .lean();
     if (!session) return null;
 
-    const user = await this.users.findById(session.userId).lean();
+    const user = await this.users.findById(session.userId);
     if (!user || user.blocked) return null;
     await this.touchActivity(session, user._id);
+    if (
+      user.shareEnabled &&
+      (!user.publicSlug || !user.wantedSlug || !user.tradeSlug)
+    ) {
+      await this.ensureSlugs(user);
+    }
     return this.toPublicUser(user);
   }
 
   async publicProfile(slug: string) {
     if (!isPublicSlug(slug)) return null;
     const user = await this.users
-      .findOne({ publicSlug: slug, shareEnabled: true })
-      .select('name alias picture')
+      .findOne({
+        shareEnabled: true,
+        $or: [{ publicSlug: slug }, { wantedSlug: slug }, { tradeSlug: slug }],
+      })
+      .select('name alias picture publicSlug wantedSlug tradeSlug')
       .lean();
     if (!user) return null;
+    const view = shareView(user, slug);
+    if (!view) return null;
     return {
       id: user._id.toString(),
       name: displayName(user),
       picture: user.picture,
-    };
+      view,
+    } as const;
   }
 
   async setAlias(userId: string, alias: string) {
@@ -173,28 +186,24 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('La sesión no es válida');
     }
-    if (enabled && !user.publicSlug) {
-      user.publicSlug = await this.createUniqueSlug();
-    }
     user.shareEnabled = enabled;
-    await user.save();
-    return {
-      publicSlug: user.publicSlug,
-      shareEnabled: user.shareEnabled,
-    };
+    if (enabled) await this.ensureSlugs(user);
+    else await user.save();
+    return this.shareLinks(user);
   }
 
-  async resetShare(userId: string) {
-    const publicSlug = await this.createUniqueSlug();
-    const user = await this.users.findByIdAndUpdate(
-      userId,
-      { $set: { publicSlug, shareEnabled: true } },
-      { new: true },
-    );
+  async resetShare(userId: string, list: 'library' | 'wanted' | 'trades') {
+    const user = await this.users.findById(userId);
     if (!user) {
       throw new UnauthorizedException('La sesión no es válida');
     }
-    return { publicSlug: user.publicSlug, shareEnabled: true };
+    const slug = await this.createUniqueSlug();
+    if (list === 'library') user.publicSlug = slug;
+    if (list === 'wanted') user.wantedSlug = slug;
+    if (list === 'trades') user.tradeSlug = slug;
+    user.shareEnabled = true;
+    await user.save();
+    return this.shareLinks(user);
   }
 
   private toPublicUser(user: {
@@ -204,6 +213,8 @@ export class AuthService {
     alias?: string | null;
     picture?: string;
     publicSlug?: string;
+    wantedSlug?: string;
+    tradeSlug?: string;
     shareEnabled?: boolean;
   }): PublicUser {
     return {
@@ -213,15 +224,52 @@ export class AuthService {
       alias: user.alias || undefined,
       picture: user.picture,
       publicSlug: user.publicSlug,
+      wantedSlug: user.wantedSlug,
+      tradeSlug: user.tradeSlug,
       shareEnabled: Boolean(user.shareEnabled),
       admin: this.isAdminEmail(user.email),
     };
   }
 
-  private async createUniqueSlug() {
+  private shareLinks(user: {
+    publicSlug?: string;
+    wantedSlug?: string;
+    tradeSlug?: string;
+    shareEnabled?: boolean;
+  }) {
+    return {
+      publicSlug: user.publicSlug,
+      wantedSlug: user.wantedSlug,
+      tradeSlug: user.tradeSlug,
+      shareEnabled: Boolean(user.shareEnabled),
+    };
+  }
+
+  private async ensureSlugs(user: UserDocument) {
+    const reserved = [user.publicSlug, user.wantedSlug, user.tradeSlug].filter(
+      (slug): slug is string => Boolean(slug),
+    );
+    if (!user.publicSlug) {
+      user.publicSlug = await this.createUniqueSlug(reserved);
+      reserved.push(user.publicSlug);
+    }
+    if (!user.wantedSlug) {
+      user.wantedSlug = await this.createUniqueSlug(reserved);
+      reserved.push(user.wantedSlug);
+    }
+    if (!user.tradeSlug) {
+      user.tradeSlug = await this.createUniqueSlug(reserved);
+    }
+    await user.save();
+  }
+
+  private async createUniqueSlug(reserved: string[] = []) {
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const slug = randomToken(9);
-      const exists = await this.users.exists({ publicSlug: slug });
+      if (reserved.includes(slug)) continue;
+      const exists = await this.users.exists({
+        $or: [{ publicSlug: slug }, { wantedSlug: slug }, { tradeSlug: slug }],
+      });
       if (!exists) return slug;
     }
     throw new UnauthorizedException('No se pudo crear el enlace público');
@@ -334,4 +382,14 @@ export class AuthService {
         .filter(Boolean),
     );
   }
+}
+
+function shareView(
+  user: { publicSlug?: string; wantedSlug?: string; tradeSlug?: string },
+  slug: string,
+) {
+  if (user.publicSlug === slug) return 'library' as const;
+  if (user.wantedSlug === slug) return 'wanted' as const;
+  if (user.tradeSlug === slug) return 'trades' as const;
+  return null;
 }

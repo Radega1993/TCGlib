@@ -4,11 +4,13 @@ export function QuantityStepper({
   label,
   value,
   pending,
+  max = 99,
   onChange,
 }: {
   label: string;
   value: number;
   pending: boolean;
+  max?: number;
   onChange: (quantity: number) => void;
 }) {
   return (
@@ -30,8 +32,8 @@ export function QuantityStepper({
         <button
           type="button"
           aria-label={`Aumentar ${label}`}
-          disabled={pending || value >= 99}
-          onClick={() => onChange(Math.min(99, value + 1))}
+          disabled={pending || value >= max}
+          onClick={() => onChange(Math.min(max, value + 1))}
           className="inline-flex size-11 items-center justify-center rounded-lg bg-white text-lg text-stone-900 ring-1 ring-stone-300 disabled:text-stone-300"
         >
           +

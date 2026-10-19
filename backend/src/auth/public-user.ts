@@ -5,6 +5,8 @@ export type PublicUser = {
   alias?: string;
   picture?: string;
   publicSlug?: string;
+  wantedSlug?: string;
+  tradeSlug?: string;
   shareEnabled: boolean;
   admin: boolean;
 };

@@ -30,7 +30,11 @@ export class ProductsService {
     const limit = query.limit ?? 24;
     const filter = buildProductFilter(query);
 
-    const term = query.q?.trim().replace(/\s+/g, ' ').slice(0, 80).toLowerCase();
+    const term = query.q
+      ?.trim()
+      .replace(/\s+/g, ' ')
+      .slice(0, 80)
+      .toLowerCase();
     if (term && term.length >= 2 && page === 1 && query.type !== 'sealed') {
       await this.recordUsage('search', term);
     }
@@ -176,6 +180,43 @@ export class ProductsService {
     return card;
   }
 
+  playableByCodes(codes: string[]) {
+    if (codes.length === 0) return Promise.resolve([]);
+    return this.productModel
+      .find({
+        tcgSlug: ONE_PIECE_SLUG,
+        type: 'card',
+        code: { $in: codes },
+      })
+      .select(
+        'externalId name code cardType color cost images.small images.medium',
+      )
+      .lean();
+  }
+
+  searchPlayable(term: string, role: 'leader' | 'card') {
+    const pattern = escapeRegex(term.trim());
+    return this.productModel
+      .find({
+        tcgSlug: ONE_PIECE_SLUG,
+        type: 'card',
+        code: { $regex: '^[A-Z]{1,4}\\d{0,2}-\\d{3}$' },
+        cardType:
+          role === 'leader'
+            ? 'Leader'
+            : { $in: ['Character', 'Event', 'Stage'] },
+        $or: [
+          { name: { $regex: pattern, $options: 'i' } },
+          { code: { $regex: pattern, $options: 'i' } },
+        ],
+      })
+      .select(
+        'externalId name code cardType color cost images.small images.medium',
+      )
+      .limit(120)
+      .lean();
+  }
+
   findCardsByExternalIds(externalIds: number[]) {
     if (externalIds.length === 0) {
       return Promise.resolve([]);
@@ -193,7 +234,12 @@ export class ProductsService {
     limit: number,
   ) {
     if (externalIds.length === 0) {
-      return { products: [] as Product[], matchedIds: [] as number[], page: 1, limit };
+      return {
+        products: [] as Product[],
+        matchedIds: [] as number[],
+        page: 1,
+        limit,
+      };
     }
 
     const filter = buildProductFilter({ ...query, type: 'card' });
@@ -271,6 +317,24 @@ export class ProductsService {
       name: set.name,
       code: set.code,
     }));
+  }
+
+  progressCards() {
+    return this.productModel
+      .find({ tcgSlug: ONE_PIECE_SLUG, type: 'card' })
+      .select({
+        externalId: 1,
+        name: 1,
+        code: 1,
+        cardType: 1,
+        rarity: 1,
+        'images.small': 1,
+        'images.medium': 1,
+        'set.externalId': 1,
+        'set.name': 1,
+        'set.code': 1,
+      })
+      .lean();
   }
 }
 

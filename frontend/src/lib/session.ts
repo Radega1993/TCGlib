@@ -70,8 +70,10 @@ export async function getCardCounts(externalId: number) {
     headers: { authorization: `Bearer ${token}` },
     cache: "no-store",
   }).catch(() => null);
-  if (!response?.ok) return { owned: 0, wanted: 0 };
-  const body = (await response.json()) as { data: { owned: number; wanted: number } };
+  if (!response?.ok) return { owned: 0, wanted: 0, forTrade: 0 };
+  const body = (await response.json()) as {
+    data: { owned: number; wanted: number; forTrade: number };
+  };
   return body.data;
 }
 

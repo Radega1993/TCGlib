@@ -17,6 +17,7 @@ import { BlockedAccountError } from './blocked-account.error';
 import { CurrentUser } from './current-user.decorator';
 import { ExchangeCodeDto } from './dto/exchange-code.dto';
 import { UpdateAliasDto } from './dto/update-alias.dto';
+import { ResetShareDto } from './dto/reset-share.dto';
 import { UpdateShareDto } from './dto/update-share.dto';
 import { AuthenticatedRequest, PublicUser } from './public-user';
 import { safeReturnPath } from './state-token';
@@ -71,7 +72,8 @@ export class AuthController {
         ),
       );
     } catch (error) {
-      const reason = error instanceof BlockedAccountError ? 'bloqueado' : 'google';
+      const reason =
+        error instanceof BlockedAccountError ? 'bloqueado' : 'google';
       return res.redirect(
         this.authService.webUrl(
           `/entrar?error=${reason}&return=${encodeURIComponent(returnTo)}`,
@@ -105,7 +107,9 @@ export class MeController {
 
   @Put('alias')
   alias(@CurrentUser() user: PublicUser, @Body() body: UpdateAliasDto) {
-    return this.authService.setAlias(user.id, body.alias).then((data) => ({ data }));
+    return this.authService
+      .setAlias(user.id, body.alias)
+      .then((data) => ({ data }));
   }
 
   @Put('share')
@@ -116,7 +120,9 @@ export class MeController {
   }
 
   @Post('share/reset')
-  resetShare(@CurrentUser() user: PublicUser) {
-    return this.authService.resetShare(user.id).then((data) => ({ data }));
+  resetShare(@CurrentUser() user: PublicUser, @Body() body: ResetShareDto) {
+    return this.authService
+      .resetShare(user.id, body.list)
+      .then((data) => ({ data }));
   }
 }

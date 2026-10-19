@@ -26,11 +26,24 @@ export class User {
   @Prop({ unique: true, sparse: true })
   publicSlug?: string;
 
+  @Prop({ unique: true, sparse: true })
+  wantedSlug?: string;
+
+  @Prop({ unique: true, sparse: true })
+  tradeSlug?: string;
+
   @Prop({ default: false })
   shareEnabled: boolean;
 
   @Prop({ default: false })
   blocked: boolean;
+
+  @Prop({ type: Object })
+  collectionGoal?: {
+    mode?: string;
+    customCopies?: number;
+    excludedVariants?: string[];
+  };
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

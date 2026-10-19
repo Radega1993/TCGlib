@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ProductFilterInput } from '../catalog/products/product-filter';
@@ -6,17 +6,20 @@ import { ProductsService } from '../catalog/products/products.service';
 import { Product } from '../catalog/schemas/product.schema';
 import { ShareCollectionQueryDto } from './dto/share-collection.query';
 import { LibraryEntry, LibraryList } from './schemas/library-entry.schema';
+import { availableCopies } from './trade-copies';
 
 const PUBLIC_PAGE_SIZE = 24;
 
 type LibraryCounts = {
   owned: { cards: number; copies: number };
   wanted: { cards: number; copies: number };
+  trades: { cards: number; copies: number };
 };
 
 type QuantityRow = {
   productExternalId: number;
   quantity: number;
+  forTrade?: number;
 };
 
 @Injectable()
@@ -43,7 +46,11 @@ export class LibraryService {
         const product = byId.get(entry.productExternalId);
         if (!product) return [];
         return [
-          { quantity: entry.quantity, product: toLibraryProduct(product) },
+          {
+            quantity: entry.quantity,
+            forTrade: entry.list === 'owned' ? (entry.forTrade ?? 0) : 0,
+            product: toLibraryProduct(product),
+          },
         ];
       })
       .sort(
@@ -55,28 +62,61 @@ export class LibraryService {
     return { data, list, counts };
   }
 
-  async publicCollection(userId: string, query: ShareCollectionQueryDto) {
+  async publicLibrary(userId: string, query: ShareCollectionQueryDto) {
+    const page = await this.publicOneList(userId, 'owned', query);
+    return {
+      scope: 'library' as const,
+      counts: page.counts,
+      facets: page.facets,
+      sets: page.sets,
+      owned: {
+        ...page.list,
+        entries: page.list.entries.map((entry) => ({ ...entry, forTrade: 0 })),
+      },
+    };
+  }
+
+  async publicWanted(userId: string, query: ShareCollectionQueryDto) {
+    const page = await this.publicOneList(userId, 'wanted', query);
+    return {
+      scope: 'wanted' as const,
+      counts: page.counts,
+      facets: page.facets,
+      sets: page.sets,
+      wanted: page.list,
+    };
+  }
+
+  async publicTrades(userId: string, query: ShareCollectionQueryDto) {
     const owner = new Types.ObjectId(userId);
     const filter = toCardFilter(query);
-    const [ownedRows, wantedRows, counts] = await Promise.all([
-      this.quantityRows(owner, 'owned'),
-      this.quantityRows(owner, 'wanted'),
-      this.countLists(owner),
-    ]);
-    const ids = [
-      ...new Set([
-        ...ownedRows.map((row) => row.productExternalId),
-        ...wantedRows.map((row) => row.productExternalId),
-      ]),
-    ];
-    const [facets, sets, owned, wanted] = await Promise.all([
+    const ownedRows = await this.quantityRows(owner, 'owned');
+    const tradeRows = ownedRows.flatMap((row) => {
+      const available = availableCopies(row.quantity, row.forTrade ?? 0);
+      if (available <= 0) return [];
+      return [
+        { productExternalId: row.productExternalId, quantity: available },
+      ];
+    });
+    const ids = tradeRows.map((row) => row.productExternalId);
+    const [facets, sets, trades] = await Promise.all([
       this.products.facetsForExternalIds(ids),
       this.products.setsForExternalIds(ids),
-      this.pageRows(ownedRows, filter, query.page ?? 1),
-      this.pageRows(wantedRows, filter, query.wanted ?? 1),
+      this.pageRows(tradeRows, filter, query.page ?? 1),
     ]);
+    const copies = tradeRows.reduce((sum, row) => sum + row.quantity, 0);
 
-    return { counts, facets, sets, owned, wanted };
+    return {
+      scope: 'trades' as const,
+      counts: {
+        owned: { cards: 0, copies: 0 },
+        wanted: { cards: 0, copies: 0 },
+        trades: { cards: tradeRows.length, copies },
+      },
+      facets,
+      sets,
+      trades,
+    };
   }
 
   async countsForCard(userId: string, externalId: number) {
@@ -85,11 +125,13 @@ export class LibraryService {
         userId: new Types.ObjectId(userId),
         productExternalId: externalId,
       })
-      .select('list quantity')
+      .select('list quantity forTrade')
       .lean();
+    const owned = entries.find((entry) => entry.list === 'owned');
     return {
-      owned: entries.find((entry) => entry.list === 'owned')?.quantity ?? 0,
+      owned: owned?.quantity ?? 0,
       wanted: entries.find((entry) => entry.list === 'wanted')?.quantity ?? 0,
+      forTrade: availableCopies(owned?.quantity ?? 0, owned?.forTrade ?? 0),
     };
   }
 
@@ -108,21 +150,78 @@ export class LibraryService {
 
     if (quantity === 0) {
       await this.entries.deleteOne(filter);
-      return { list, quantity: 0 };
+      return { list, quantity: 0, forTrade: 0 };
     }
 
+    const current = await this.entries
+      .findOne(filter)
+      .select('forTrade')
+      .lean();
+    const forTrade =
+      list === 'owned' ? availableCopies(quantity, current?.forTrade ?? 0) : 0;
     await this.entries.findOneAndUpdate(
       filter,
-      { $set: { quantity } },
+      { $set: { quantity, forTrade } },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
-    return { list, quantity };
+    return { list, quantity, forTrade };
+  }
+
+  async setForTrade(userId: string, externalId: number, forTrade: number) {
+    await this.products.requireCard(externalId);
+    const filter = {
+      userId: new Types.ObjectId(userId),
+      productExternalId: externalId,
+      list: 'owned' as const,
+    };
+    const owned = await this.entries.findOne(filter).select('quantity').lean();
+    if (!owned) {
+      throw new BadRequestException(
+        'Guarda la carta en tu biblioteca antes de marcar copias para intercambio.',
+      );
+    }
+    if (forTrade > owned.quantity) {
+      throw new BadRequestException(
+        'No puedes ofrecer más copias de las que tienes.',
+      );
+    }
+    await this.entries.updateOne(filter, { $set: { forTrade } });
+    return { forTrade, owned: owned.quantity };
+  }
+
+  private async publicOneList(
+    userId: string,
+    list: LibraryList,
+    query: ShareCollectionQueryDto,
+  ) {
+    const owner = new Types.ObjectId(userId);
+    const filter = toCardFilter(query);
+    const [rows, counts] = await Promise.all([
+      this.quantityRows(owner, list),
+      this.countLists(owner),
+    ]);
+    const ids = rows.map((row) => row.productExternalId);
+    const [facets, sets, page] = await Promise.all([
+      this.products.facetsForExternalIds(ids),
+      this.products.setsForExternalIds(ids),
+      this.pageRows(rows, filter, query.page ?? 1),
+    ]);
+    return {
+      counts: {
+        owned: list === 'owned' ? counts.owned : { cards: 0, copies: 0 },
+        wanted: list === 'wanted' ? counts.wanted : { cards: 0, copies: 0 },
+        trades: { cards: 0, copies: 0 },
+      },
+      facets,
+      sets,
+      list: page,
+    };
   }
 
   private quantityRows(userId: Types.ObjectId, list: LibraryList) {
     return this.entries
       .find({ userId, list })
-      .select('productExternalId quantity')
+      .select('productExternalId quantity forTrade')
       .lean();
   }
 
@@ -133,6 +232,9 @@ export class LibraryService {
   ) {
     const quantities = new Map(
       rows.map((row) => [row.productExternalId, row.quantity]),
+    );
+    const trades = new Map(
+      rows.map((row) => [row.productExternalId, row.forTrade ?? 0]),
     );
     const result = await this.products.pageByExternalIds(
       [...quantities.keys()],
@@ -154,7 +256,16 @@ export class LibraryService {
       entries: result.products.flatMap((product) => {
         const quantity = quantities.get(product.externalId);
         if (!quantity) return [];
-        return [{ quantity, product: toLibraryProduct(product) }];
+        return [
+          {
+            quantity,
+            forTrade: availableCopies(
+              quantity,
+              trades.get(product.externalId) ?? 0,
+            ),
+            product: toLibraryProduct(product),
+          },
+        ];
       }),
     };
   }
@@ -164,6 +275,8 @@ export class LibraryService {
       _id: LibraryList;
       cards: number;
       copies: number;
+      tradeCards: number;
+      tradeCopies: number;
     }>([
       { $match: { userId } },
       {
@@ -171,6 +284,29 @@ export class LibraryService {
           _id: '$list',
           cards: { $sum: 1 },
           copies: { $sum: '$quantity' },
+          tradeCards: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ['$list', 'owned'] },
+                    { $gt: [{ $ifNull: ['$forTrade', 0] }, 0] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          tradeCopies: {
+            $sum: {
+              $cond: [
+                { $eq: ['$list', 'owned'] },
+                { $ifNull: ['$forTrade', 0] },
+                0,
+              ],
+            },
+          },
         },
       },
     ]);
@@ -178,9 +314,12 @@ export class LibraryService {
     const counts: LibraryCounts = {
       owned: { cards: 0, copies: 0 },
       wanted: { cards: 0, copies: 0 },
+      trades: { cards: 0, copies: 0 },
     };
     for (const group of grouped) {
       counts[group._id] = { cards: group.cards, copies: group.copies };
+      counts.trades.cards += group.tradeCards;
+      counts.trades.copies += group.tradeCopies;
     }
     return counts;
   }

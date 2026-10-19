@@ -13,6 +13,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { PublicUser } from '../auth/public-user';
 import { ListLibraryQueryDto } from './dto/list-library.query';
 import { UpdateLibraryDto } from './dto/update-library.dto';
+import { UpdateTradeDto } from './dto/update-trade.dto';
 import { LibraryService } from './library.service';
 
 @Controller('me/library')
@@ -32,6 +33,13 @@ export class LibraryController {
   ) {
     return this.library
       .countsForCard(user.id, externalId)
+      .then((data) => ({ data }));
+  }
+
+  @Put('trade')
+  trade(@CurrentUser() user: PublicUser, @Body() body: UpdateTradeDto) {
+    return this.library
+      .setForTrade(user.id, body.externalId, body.forTrade)
       .then((data) => ({ data }));
   }
 

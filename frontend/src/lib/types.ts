@@ -97,6 +97,8 @@ export type PublicUser = {
   alias?: string;
   picture?: string;
   publicSlug?: string;
+  wantedSlug?: string;
+  tradeSlug?: string;
   shareEnabled: boolean;
   admin: boolean;
 };
@@ -109,14 +111,18 @@ export type SharedListPage = {
   entries: LibraryEntry[];
 };
 
+export type ShareView = "library" | "wanted" | "trades";
+
 export type SharedCollection = {
   name: string;
   picture?: string;
+  scope: ShareView;
   counts: LibraryCounts;
   facets: CatalogFacets;
   sets: CardSet[];
-  owned: SharedListPage;
-  wanted: SharedListPage;
+  owned?: SharedListPage;
+  wanted?: SharedListPage;
+  trades?: SharedListPage;
 };
 
 export type AdminListCount = {
@@ -217,12 +223,180 @@ export type LibraryCard = {
 
 export type LibraryEntry = {
   quantity: number;
+  forTrade?: number;
   product: LibraryCard;
 };
 
 export type LibraryCounts = {
   owned: { cards: number; copies: number };
   wanted: { cards: number; copies: number };
+  trades: { cards: number; copies: number };
+};
+
+export type CollectionMode = "base" | "master" | "playset" | "custom";
+
+export type CollectionView = "todas" | "faltan" | "tienes" | "repetidas" | "deseadas";
+
+export type CollectionGoal = {
+  mode: CollectionMode;
+  customCopies: number;
+  excludedVariants: string[];
+};
+
+export type CollectionVariant = {
+  label: string;
+  cards: number;
+};
+
+export type SetProgress = {
+  externalId: string;
+  code?: string;
+  name: string;
+  obtained: number;
+  total: number;
+  missing: number;
+  duplicates: number;
+  wanted: number;
+  percent: number;
+};
+
+export type CollectionOverview = {
+  goal: CollectionGoal;
+  variants: CollectionVariant[];
+  sets: SetProgress[];
+};
+
+export type CollectionCardRow = {
+  externalId: number;
+  name: string;
+  code?: string | null;
+  cardType?: string | null;
+  rarity?: string | null;
+  image?: string | null;
+  variantLabel?: string | null;
+  owned: number;
+  wanted: number;
+  inGoal: boolean;
+  target: number;
+  counted: number;
+};
+
+export type CollectionSetDetail = {
+  set: SetProgress;
+  goal: CollectionGoal;
+  view: CollectionView;
+  counts: Record<CollectionView, number>;
+  cards: CollectionCardRow[];
+  page: number;
+  limit: number;
+  total: number;
+};
+
+export type DeckFormat = "extra" | "standard";
+export type LegalityStatus = "legal" | "illegal" | "unchecked";
+
+export type DeckCard = {
+  externalId: number | null;
+  code: string;
+  name: string;
+  cardType: string | null;
+  color: string | null;
+  cost: number | null;
+  image: string | null;
+};
+
+export type DeckLine = DeckCard & {
+  needed: number;
+  owned: number;
+  missing: number;
+};
+
+export type ConstructionIssue =
+  | { code: "leader-missing" }
+  | { code: "leader-unknown" }
+  | { code: "leader-type" }
+  | { code: "size"; have: number }
+  | { code: "copies"; card: string; quantity: number }
+  | { code: "color"; card: string }
+  | { code: "type"; card: string }
+  | { code: "unknown"; card: string };
+
+export type DeckLegality = {
+  status: LegalityStatus;
+  rulesId: string | null;
+  blockChecked: boolean;
+  banned: string[];
+  pairs: [string, string][];
+  restricted: { code: string; quantity: number; max: number }[];
+};
+
+export type DeckSummaryStats = {
+  colors: { color: string; copies: number }[];
+  types: { cardType: string; copies: number }[];
+  curve: { cost: string; copies: number }[];
+};
+
+export type DeckDetail = {
+  id: string;
+  name: string;
+  format: DeckFormat;
+  source: string;
+  rulesId: string | null;
+  rulesLabel: string | null;
+  don: number;
+  leader: DeckCard | null;
+  lines: DeckLine[];
+  construction: {
+    ok: boolean;
+    size: number;
+    target: number;
+    issues: ConstructionIssue[];
+  };
+  legality: DeckLegality;
+  availability: {
+    listSize: number;
+    available: number;
+    missingCopies: number;
+    target: number;
+  };
+  summary: DeckSummaryStats;
+  shareEnabled: boolean;
+  publicSlug: string | null;
+  updatedAt: string | null;
+};
+
+export type DeckListItem = {
+  id: string;
+  name: string;
+  format: DeckFormat;
+  rulesId: string | null;
+  rulesLabel: string | null;
+  updatedAt: string | null;
+  leader: DeckCard | null;
+  construction: { ok: boolean; size: number; target: number };
+  legality: { status: LegalityStatus; blockChecked: boolean };
+  availability: {
+    available: number;
+    listSize: number;
+    missingCopies: number;
+    target: number;
+  };
+};
+
+export type DeckSearchCard = DeckCard & { owned: number };
+
+export type PublicDeck = {
+  owner: string;
+  name: string;
+  format: DeckFormat;
+  rulesId: string | null;
+  rulesLabel: string | null;
+  don: number;
+  leader: DeckCard | null;
+  lines: (DeckCard & { quantity: number })[];
+  construction: DeckDetail["construction"];
+  legality: DeckLegality;
+  summary: DeckSummaryStats;
 };
 
 export type CatalogQuery = {

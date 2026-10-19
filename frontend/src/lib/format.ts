@@ -9,8 +9,17 @@ const COLOR_CLASS: Record<string, string> = {
   Yellow: "bg-amber-400",
 };
 
+const percents = new Intl.NumberFormat("es-ES", {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+});
+
 export function formatCount(value: number) {
   return counts.format(value);
+}
+
+export function formatPercent(value: number) {
+  return `${percents.format(value)} %`;
 }
 
 export function displayName(user: { name: string; alias?: string | null }) {

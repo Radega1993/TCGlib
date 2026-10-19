@@ -3,9 +3,9 @@ import { Filters } from "@/components/filters";
 import { LibraryList } from "@/components/library-list";
 import { Pagination } from "@/components/pagination";
 import { activeFilterCount, parseShareQuery, shareHref } from "@/lib/catalog-query";
-import { collectionLabel } from "@/lib/format";
+import { collectionLabel, formatCount } from "@/lib/format";
 import { getSharedCollection } from "@/lib/session";
-import { LibraryEntry } from "@/lib/types";
+import { LibraryEntry, SharedCollection, ShareView } from "@/lib/types";
 
 export async function PublicCollection({
   slug,
@@ -43,15 +43,11 @@ export async function PublicCollection({
           />
         ) : null}
         <div>
-          <p className="text-sm text-stone-500">Colección pública · One Piece</p>
+          <p className="text-sm text-stone-500">{publicEyebrow(collection.scope)}</p>
           <h1 className="text-2xl font-semibold tracking-tight text-stone-950">
             {collection.name}
           </h1>
-          <p className="mt-1 text-sm text-stone-600">
-            Biblioteca {collectionLabel(collection.counts.owned.cards, collection.counts.owned.copies)}
-            {" · "}
-            Deseados {collectionLabel(collection.counts.wanted.cards, collection.counts.wanted.copies)}
-          </p>
+          <p className="mt-1 text-sm text-stone-600">{publicSummary(collection)}</p>
         </div>
       </div>
       <Filters
@@ -61,33 +57,74 @@ export async function PublicCollection({
         share={{ slug, wantedPage: query.wantedPage }}
       />
       <PublicList
-        title="Biblioteca"
-        list="owned"
-        entries={collection.owned.entries}
-        total={collection.owned.total}
-        copies={collection.owned.copies}
-        page={collection.owned.page}
-        limit={collection.owned.limit}
+        title={publicTitle(collection.scope)}
+        list={collection.scope === "wanted" ? "wanted" : "owned"}
+        entries={publicEntries(collection)}
+        total={publicPage(collection).total}
+        copies={publicPage(collection).copies}
+        page={publicPage(collection).page}
+        limit={publicPage(collection).limit}
         filtered={filtered}
         term={query.q}
         returnTo={back}
+        empty={publicEmpty(collection.scope)}
+        copiesLabel={
+          collection.scope === "trades"
+            ? (quantity) => `${quantity} ${quantity === 1 ? "disponible" : "disponibles"}`
+            : undefined
+        }
         hrefFor={(page) => shareHref(slug, { ...query, page })}
-      />
-      <PublicList
-        title="Deseados"
-        list="wanted"
-        entries={collection.wanted.entries}
-        total={collection.wanted.total}
-        copies={collection.wanted.copies}
-        page={collection.wanted.page}
-        limit={collection.wanted.limit}
-        filtered={filtered}
-        term={query.q}
-        returnTo={back}
-        hrefFor={(wantedPage) => shareHref(slug, { ...query, wantedPage })}
       />
     </div>
   );
+}
+
+function publicEyebrow(scope: ShareView) {
+  if (scope === "wanted") return "Deseados públicos · One Piece";
+  if (scope === "trades") return "Intercambio público · One Piece";
+  return "Biblioteca pública · One Piece";
+}
+
+function publicTitle(scope: ShareView) {
+  if (scope === "wanted") return "Deseados";
+  if (scope === "trades") return "Intercambio";
+  return "Biblioteca";
+}
+
+function publicEmpty(scope: ShareView) {
+  if (scope === "wanted") return "Esta lista de deseos está vacía.";
+  if (scope === "trades") return "No hay cartas disponibles para intercambio.";
+  return "Esta biblioteca no tiene cartas.";
+}
+
+function publicPage(collection: SharedCollection) {
+  const page =
+    collection.scope === "wanted"
+      ? collection.wanted
+      : collection.scope === "trades"
+        ? collection.trades
+        : collection.owned;
+  return page ?? { total: 0, copies: 0, page: 1, limit: 24, entries: [] };
+}
+
+function publicEntries(collection: SharedCollection) {
+  return publicPage(collection).entries;
+}
+
+function publicSummary(collection: SharedCollection) {
+  if (collection.scope === "trades") {
+    return tradeSummary(collection.counts.trades.cards, collection.counts.trades.copies);
+  }
+  if (collection.scope === "wanted") {
+    return `Deseados ${collectionLabel(collection.counts.wanted.cards, collection.counts.wanted.copies)}`;
+  }
+  return `Biblioteca ${collectionLabel(collection.counts.owned.cards, collection.counts.owned.copies)}`;
+}
+
+function tradeSummary(cards: number, copies: number) {
+  const cardLabel = cards === 1 ? "carta" : "cartas";
+  const copyLabel = copies === 1 ? "disponible" : "disponibles";
+  return `${formatCount(cards)} ${cardLabel} · ${formatCount(copies)} ${copyLabel}`;
 }
 
 function PublicList({
@@ -102,6 +139,8 @@ function PublicList({
   term,
   returnTo,
   hrefFor,
+  empty,
+  copiesLabel,
 }: {
   title: string;
   list: "owned" | "wanted";
@@ -114,13 +153,15 @@ function PublicList({
   term?: string;
   returnTo: string;
   hrefFor: (page: number) => string;
+  empty?: string;
+  copiesLabel?: (quantity: number) => string;
 }) {
   return (
     <section className="flex flex-col gap-3">
       <div>
         <h2 className="text-lg font-semibold text-stone-950">{title}</h2>
         <p className="text-sm text-stone-600">
-          {collectionLabel(total, copies)}
+          {copiesLabel ? tradeSummary(total, copies) : collectionLabel(total, copies)}
           {term ? ` para “${term}”` : ""}
         </p>
       </div>
@@ -128,12 +169,20 @@ function PublicList({
         <p className="rounded-2xl bg-white px-4 py-10 text-center text-sm text-stone-600 ring-1 ring-stone-200">
           {filtered
             ? "Ninguna carta coincide con estos filtros."
-            : list === "owned"
-              ? "Esta biblioteca no tiene cartas."
-              : "Esta lista de deseos está vacía."}
+            : empty
+              ? empty
+              : list === "owned"
+                ? "Esta biblioteca no tiene cartas."
+                : "Esta lista de deseos está vacía."}
         </p>
       ) : (
-        <LibraryList entries={entries} list={list} readOnly={true} returnTo={returnTo} />
+        <LibraryList
+          entries={entries}
+          list={list}
+          readOnly={true}
+          returnTo={returnTo}
+          copiesLabel={copiesLabel}
+        />
       )}
       {total > limit ? (
         <Pagination

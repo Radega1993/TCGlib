@@ -41,7 +41,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <Suspense fallback={<AppChrome user={null} />}>
             <AuthedChrome />
           </Suspense>
-          <main className="mx-auto w-full min-w-0 max-w-6xl px-4 py-4 sm:px-6 sm:py-6">
+          <main className="mx-auto w-full min-w-0 max-w-6xl px-4 py-4 sm:px-6 sm:py-6 md:col-start-2">
             {children}
           </main>
         </div>

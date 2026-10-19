@@ -36,7 +36,7 @@ export async function ProductView({
   const user = await getCurrentUser();
   const library = user
     ? await getCardCounts(product.externalId)
-    : { owned: 0, wanted: 0 };
+    : { owned: 0, wanted: 0, forTrade: 0 };
   const image = product.images[0]?.large ?? product.images[0]?.medium;
   const description = product.attributes.Description;
   const attributeEntries = Object.entries(product.attributes).filter(
@@ -84,6 +84,7 @@ export async function ProductView({
             externalId={product.externalId}
             owned={library?.owned ?? 0}
             wanted={library?.wanted ?? 0}
+            forTrade={library?.forTrade ?? 0}
             loggedIn={user !== null}
           />
           <dl className="grid grid-cols-2 gap-3 text-sm">

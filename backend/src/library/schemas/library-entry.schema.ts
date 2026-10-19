@@ -17,6 +17,9 @@ export class LibraryEntry {
 
   @Prop({ required: true, min: 1, max: 99 })
   quantity: number;
+
+  @Prop({ default: 0, min: 0, max: 99 })
+  forTrade: number;
 }
 
 export const LibraryEntrySchema = SchemaFactory.createForClass(LibraryEntry);
