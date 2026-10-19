@@ -1,0 +1,101 @@
+import { CatalogQuery } from "@/lib/types";
+
+const LIST_LIMIT = {
+  color: 8,
+  rarity: 12,
+  cardType: 8,
+  attribute: 8,
+  cost: 12,
+} as const;
+
+export function parseCatalogQuery(
+  raw: Record<string, string | string[] | undefined>,
+): CatalogQuery {
+  const page = Number(first(raw.page) ?? 1);
+  const q = first(raw.q)?.trim();
+  const set = first(raw.set)?.trim();
+
+  return {
+    q: q || undefined,
+    set: set || undefined,
+    color: list(raw.color, LIST_LIMIT.color),
+    rarity: list(raw.rarity, LIST_LIMIT.rarity),
+    cardType: list(raw.cardType, LIST_LIMIT.cardType),
+    attribute: list(raw.attribute, LIST_LIMIT.attribute),
+    cost: list(raw.cost, LIST_LIMIT.cost),
+    page: Number.isInteger(page) && page > 0 ? page : 1,
+  };
+}
+
+export function catalogHref(query: CatalogQuery, page = query.page) {
+  const params = new URLSearchParams();
+  if (query.q) params.set("q", query.q);
+  if (query.set) params.set("set", query.set);
+  setList(params, "color", query.color);
+  setList(params, "rarity", query.rarity);
+  setList(params, "cardType", query.cardType);
+  setList(params, "attribute", query.attribute);
+  setList(params, "cost", query.cost);
+  if (page > 1) params.set("page", String(page));
+  const search = params.toString();
+  return search ? `/?${search}` : "/";
+}
+
+export function toggleValue(values: string[], value: string) {
+  return values.includes(value)
+    ? values.filter((item) => item !== value)
+    : [...values, value];
+}
+
+export function activeFilterCount(query: CatalogQuery) {
+  return (
+    query.color.length +
+    query.rarity.length +
+    query.cardType.length +
+    query.attribute.length +
+    query.cost.length +
+    (query.set ? 1 : 0) +
+    (query.q ? 1 : 0)
+  );
+}
+
+export function productHref(externalId: number, returnTo: string) {
+  const params = new URLSearchParams();
+  if (returnTo !== "/") params.set("return", returnTo);
+  const search = params.toString();
+  return search
+    ? `/products/${externalId}?${search}`
+    : `/products/${externalId}`;
+}
+
+export function safeNextPath(value: string | undefined, fallback = "/perfil") {
+  if (!value || value.length > 300) return fallback;
+  if (!value.startsWith("/") || value.startsWith("//")) return fallback;
+  if (value.includes("://") || /[\s\\]/.test(value)) return fallback;
+  if (value.startsWith("/entrar") || value.startsWith("/api")) return fallback;
+  return value;
+}
+
+export function safeReturn(value: string | undefined) {
+  return safeNextPath(value, "/");
+}
+
+function setList(params: URLSearchParams, key: string, values: string[]) {
+  if (values.length) params.set(key, values.join(","));
+}
+
+function list(value: string | string[] | undefined, max: number) {
+  const raw = Array.isArray(value) ? value : value ? [value] : [];
+  return [
+    ...new Set(
+      raw
+        .flatMap((item) => item.split(","))
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  ].slice(0, max);
+}
+
+function first(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
