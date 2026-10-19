@@ -16,6 +16,7 @@ import { AuthService } from './auth.service';
 import { BlockedAccountError } from './blocked-account.error';
 import { CurrentUser } from './current-user.decorator';
 import { ExchangeCodeDto } from './dto/exchange-code.dto';
+import { UpdateAliasDto } from './dto/update-alias.dto';
 import { UpdateShareDto } from './dto/update-share.dto';
 import { AuthenticatedRequest, PublicUser } from './public-user';
 import { safeReturnPath } from './state-token';
@@ -100,6 +101,11 @@ export class MeController {
   @Get()
   me(@CurrentUser() user: PublicUser) {
     return { data: user };
+  }
+
+  @Put('alias')
+  alias(@CurrentUser() user: PublicUser, @Body() body: UpdateAliasDto) {
+    return this.authService.setAlias(user.id, body.alias).then((data) => ({ data }));
   }
 
   @Put('share')

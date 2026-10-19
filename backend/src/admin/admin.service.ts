@@ -5,12 +5,20 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, Types } from 'mongoose';
+import { parseAlias } from '../auth/alias';
 import { AuthService } from '../auth/auth.service';
+import {
+  madridDayLabel,
+  madridDaysAgo,
+  recentMadridDays,
+} from '../auth/madrid-time';
+import { ActivityDay } from '../auth/schemas/activity-day.schema';
 import { Session } from '../auth/schemas/session.schema';
 import { User } from '../auth/schemas/user.schema';
 import { ProductsService } from '../catalog/products/products.service';
 import { escapeRegex } from '../catalog/products/product-filter';
 import { SyncRun } from '../catalog/schemas/sync-run.schema';
+import { UsageEvent } from '../catalog/schemas/usage-event.schema';
 import { SetsService } from '../catalog/sets/sets.service';
 import { ONE_PIECE_SLUG } from '../catalog/sync/catalog-sync.service';
 import { LibraryEntry } from '../library/schemas/library-entry.schema';
@@ -18,13 +26,11 @@ import { BlockUserDto } from './dto/block-user.dto';
 import { ListAdminUsersQueryDto } from './dto/list-admin-users.query';
 import { UpdateAdminUserDto } from './dto/update-admin-user.dto';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 25;
+const RANK_LIMIT = 8;
 
-type ListTotals = {
-  cards: number;
-  copies: number;
-  users: Types.ObjectId[];
-};
+type ListCount = { cards: number; copies: number; users: number };
+type LibraryGroup = ListCount & { _id: 'owned' | 'wanted' };
 
 @Injectable()
 export class AdminService {
@@ -36,37 +42,127 @@ export class AdminService {
     @InjectModel(Session.name) private readonly sessions: Model<Session>,
     @InjectModel(LibraryEntry.name) private readonly library: Model<LibraryEntry>,
     @InjectModel(SyncRun.name) private readonly syncRuns: Model<SyncRun>,
+    @InjectModel(ActivityDay.name) private readonly activityDays: Model<ActivityDay>,
+    @InjectModel(UsageEvent.name) private readonly usage: Model<UsageEvent>,
   ) {}
 
   async overview() {
-    const [total, blocked, sharing, sessions, libraryRows, catalog, sets, sync] =
-      await Promise.all([
-        this.users.countDocuments(),
-        this.users.countDocuments({ blocked: true }),
-        this.users.countDocuments({ shareEnabled: true }),
-        this.sessions.countDocuments({ expiresAt: { $gt: new Date() } }),
-        this.library.aggregate<ListTotals & { _id: 'owned' | 'wanted' }>([
-          {
-            $group: {
-              _id: '$list',
-              cards: { $sum: 1 },
-              copies: { $sum: '$quantity' },
-              users: { $addToSet: '$userId' },
-            },
+    const today = madridDaysAgo(1);
+    const week = madridDaysAgo(7);
+    const month = madridDaysAgo(30);
+    const days = recentMadridDays(14);
+    const chartStart = madridDaysAgo(14);
+
+    const [
+      total,
+      blocked,
+      sharing,
+      activeToday,
+      activeWeek,
+      activeMonth,
+      newWeek,
+      newMonth,
+      sessions,
+      activity,
+      libraryRows,
+      catalog,
+      sets,
+      sync,
+      signupRows,
+      visitRows,
+      wantedRows,
+      ownedRows,
+      searchRows,
+      viewRows,
+    ] = await Promise.all([
+      this.users.countDocuments(),
+      this.users.countDocuments({ blocked: true }),
+      this.users.countDocuments({ shareEnabled: true }),
+      this.users.countDocuments({ lastSeenAt: { $gte: today } }),
+      this.users.countDocuments({ lastSeenAt: { $gte: week } }),
+      this.users.countDocuments({ lastSeenAt: { $gte: month } }),
+      this.users.countDocuments({ createdAt: { $gte: week } }),
+      this.users.countDocuments({ createdAt: { $gte: month } }),
+      this.sessions.countDocuments({ expiresAt: { $gt: new Date() } }),
+      this.averageActivity(month),
+      this.library.aggregate<LibraryGroup>([
+        {
+          $group: {
+            _id: { list: '$list', userId: '$userId' },
+            cards: { $sum: 1 },
+            copies: { $sum: '$quantity' },
           },
-        ]),
-        this.productsService.countByType(ONE_PIECE_SLUG),
-        this.setsService.count(ONE_PIECE_SLUG),
-        this.syncRuns
-          .findOne({ tcgSlug: ONE_PIECE_SLUG })
-          .sort({ startedAt: -1 })
-          .select('status startedAt finishedAt cards sealed productsUpserted error')
-          .lean(),
-      ]);
+        },
+        {
+          $group: {
+            _id: '$_id.list',
+            cards: { $sum: '$cards' },
+            copies: { $sum: '$copies' },
+            users: { $sum: 1 },
+          },
+        },
+      ]),
+      this.productsService.countByType(ONE_PIECE_SLUG),
+      this.setsService.count(ONE_PIECE_SLUG),
+      this.syncRuns
+        .findOne({ tcgSlug: ONE_PIECE_SLUG })
+        .sort({ startedAt: -1 })
+        .select('status startedAt finishedAt cards sealed productsUpserted error')
+        .lean(),
+      this.users.aggregate<{ _id: string; count: number }>([
+        { $match: { createdAt: { $gte: chartStart } } },
+        {
+          $group: {
+            _id: {
+              $dateToString: {
+                format: '%Y-%m-%d',
+                date: '$createdAt',
+                timezone: 'Europe/Madrid',
+              },
+            },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+      this.activityDays.aggregate<{ _id: string; count: number }>([
+        { $match: { day: { $gte: days[0] } } },
+        { $group: { _id: '$day', count: { $sum: 1 } } },
+      ]),
+      this.topLibrary('wanted'),
+      this.topLibrary('owned'),
+      this.usage.aggregate<{ _id: string; count: number }>([
+        { $match: { kind: 'search', createdAt: { $gte: month } } },
+        { $group: { _id: '$key', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: RANK_LIMIT },
+      ]),
+      this.usage.aggregate<{ _id: string; count: number }>([
+        { $match: { kind: 'view', createdAt: { $gte: month } } },
+        { $group: { _id: '$key', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: RANK_LIMIT },
+      ]),
+    ]);
+
+    const [wanted, owned, viewed] = await Promise.all([
+      this.hydrateCards(wantedRows),
+      this.hydrateCards(ownedRows),
+      this.hydrateViews(viewRows),
+    ]);
 
     return {
-      users: { total, blocked, sharing },
+      users: {
+        total,
+        blocked,
+        sharing,
+        activeToday,
+        activeWeek,
+        activeMonth,
+        newWeek,
+        newMonth,
+      },
       sessions,
+      activity,
       library: {
         owned: listSummary(libraryRows, 'owned'),
         wanted: listSummary(libraryRows, 'wanted'),
@@ -83,18 +179,25 @@ export class AdminService {
             error: sync.error,
           }
         : null,
+      signups: fillDays(days, signupRows),
+      visits: fillDays(days, visitRows),
+      wanted,
+      owned,
+      searched: searchRows.map((row) => ({ term: row._id, count: row.count })),
+      viewed,
     };
   }
 
   async usersPage(query: ListAdminUsersQueryDto) {
     const limit = PAGE_SIZE;
-    const filter = userFilter(query.q);
+    const filter = userFilter(query);
     const total = await this.users.countDocuments(filter);
     const pages = Math.max(1, Math.ceil(total / limit));
     const page = Math.min(query.page ?? 1, pages);
     const rows = await this.users
       .find(filter)
-      .sort({ createdAt: -1 })
+      .sort(userSort(query.sort))
+      .collation({ locale: 'es' })
       .skip((page - 1) * limit)
       .limit(limit)
       .lean();
@@ -109,12 +212,12 @@ export class AdminService {
   }
 
   async updateUser(id: string, patch: UpdateAdminUserDto) {
-    if (patch.name === undefined && patch.shareEnabled === undefined) {
+    if (patch.alias === undefined && patch.shareEnabled === undefined) {
       throw new BadRequestException('No hay cambios que guardar');
     }
     const user = await this.requireUser(id);
-    if (patch.name !== undefined) {
-      user.name = patch.name;
+    if (patch.alias !== undefined) {
+      user.set('alias', parseAlias(patch.alias) ?? undefined);
     }
     if (patch.shareEnabled !== undefined) {
       if (patch.shareEnabled && !user.publicSlug) {
@@ -153,9 +256,77 @@ export class AdminService {
     await Promise.all([
       this.sessions.deleteMany({ userId: user._id }),
       this.library.deleteMany({ userId: user._id }),
+      this.activityDays.deleteMany({ userId: user._id }),
       this.users.deleteOne({ _id: user._id }),
     ]);
     return { ok: true };
+  }
+
+  private async averageActivity(since: Date) {
+    const [row] = await this.sessions.aggregate<{ users: number; averageMs: number }>([
+      { $match: { lastSeenAt: { $gte: since }, activeMs: { $gt: 0 } } },
+      { $group: { _id: '$userId', activeMs: { $sum: '$activeMs' } } },
+      { $group: { _id: null, users: { $sum: 1 }, averageMs: { $avg: '$activeMs' } } },
+    ]);
+    return {
+      users: row?.users ?? 0,
+      averageMs: Math.round(row?.averageMs ?? 0),
+    };
+  }
+
+  private topLibrary(list: 'owned' | 'wanted') {
+    return this.library.aggregate<{ _id: number; copies: number; users: number }>([
+      { $match: { list } },
+      {
+        $group: {
+          _id: '$productExternalId',
+          copies: { $sum: '$quantity' },
+          users: { $sum: 1 },
+        },
+      },
+      { $sort: { users: -1, copies: -1 } },
+      { $limit: RANK_LIMIT },
+    ]);
+  }
+
+  private async hydrateCards(rows: { _id: number; copies: number; users: number }[]) {
+    const products = await this.productsService.findCardsByExternalIds(rows.map((row) => row._id));
+    const byId = new Map(products.map((product) => [product.externalId, product]));
+    return rows.flatMap((row) => {
+      const product = byId.get(row._id);
+      if (!product) return [];
+      return [
+        {
+          externalId: product.externalId,
+          name: product.name,
+          code: product.code,
+          image: cardImage(product.images),
+          users: row.users,
+          copies: row.copies,
+        },
+      ];
+    });
+  }
+
+  private async hydrateViews(rows: { _id: string; count: number }[]) {
+    const ids = rows
+      .map((row) => Number(row._id))
+      .filter((id) => Number.isInteger(id) && id > 0);
+    const products = await this.productsService.findCardsByExternalIds(ids);
+    const byId = new Map(products.map((product) => [product.externalId, product]));
+    return rows.flatMap((row) => {
+      const product = byId.get(Number(row._id));
+      if (!product) return [];
+      return [
+        {
+          externalId: product.externalId,
+          name: product.name,
+          code: product.code,
+          image: cardImage(product.images),
+          views: row.count,
+        },
+      ];
+    });
   }
 
   private async present(id: Types.ObjectId) {
@@ -183,11 +354,13 @@ export class AdminService {
       _id: { toString(): string };
       email: string;
       name: string;
+      alias?: string | null;
       picture?: string;
       publicSlug?: string;
       shareEnabled?: boolean;
       blocked?: boolean;
       createdAt?: Date;
+      lastSeenAt?: Date;
     },
     lists?: { owned: ListCount; wanted: ListCount },
   ) {
@@ -195,12 +368,14 @@ export class AdminService {
       id: user._id.toString(),
       email: user.email,
       name: user.name,
+      alias: user.alias || undefined,
       picture: user.picture,
       publicSlug: user.publicSlug,
       shareEnabled: Boolean(user.shareEnabled),
       blocked: Boolean(user.blocked),
       admin: this.authService.isAdminEmail(user.email),
       createdAt: user.createdAt,
+      lastSeenAt: user.lastSeenAt,
       owned: lists?.owned ?? emptyList(),
       wanted: lists?.wanted ?? emptyList(),
     };
@@ -226,36 +401,58 @@ export class AdminService {
     for (const row of rows) {
       const key = row._id.userId.toString();
       const current = totals.get(key) ?? { owned: emptyList(), wanted: emptyList() };
-      current[row._id.list] = { cards: row.cards, copies: row.copies };
+      current[row._id.list] = { cards: row.cards, copies: row.copies, users: 1 };
       totals.set(key, current);
     }
     return totals;
   }
 }
 
-type ListCount = { cards: number; copies: number };
-
 function emptyList(): ListCount {
-  return { cards: 0, copies: 0 };
+  return { cards: 0, copies: 0, users: 0 };
 }
 
-function listSummary(rows: Array<ListTotals & { _id: 'owned' | 'wanted' }>, list: 'owned' | 'wanted') {
+function listSummary(rows: LibraryGroup[], list: 'owned' | 'wanted'): ListCount {
   const row = rows.find((item) => item._id === list);
   return {
     cards: row?.cards ?? 0,
     copies: row?.copies ?? 0,
-    users: row?.users.length ?? 0,
+    users: row?.users ?? 0,
   };
 }
 
-function userFilter(q: string | undefined): FilterQuery<User> {
-  const term = q?.trim();
-  if (!term) return {};
+function fillDays(days: string[], rows: { _id: string; count: number }[]) {
+  const counts = new Map(rows.map((row) => [row._id, row.count]));
+  return days.map((day) => ({
+    day,
+    label: madridDayLabel(day),
+    count: counts.get(day) ?? 0,
+  }));
+}
+
+function userFilter(query: ListAdminUsersQueryDto): FilterQuery<User> {
+  const filter: FilterQuery<User> = {};
+  if (query.status === 'blocked') filter.blocked = true;
+  if (query.status === 'sharing') filter.shareEnabled = true;
+  if (query.status === 'active') filter.lastSeenAt = { $gte: madridDaysAgo(7) };
+  const term = query.q?.trim();
+  if (!term) return filter;
   const pattern = escapeRegex(term);
-  return {
-    $or: [
-      { name: { $regex: pattern, $options: 'i' } },
-      { email: { $regex: pattern, $options: 'i' } },
-    ],
-  };
+  filter.$or = [
+    { name: { $regex: pattern, $options: 'i' } },
+    { alias: { $regex: pattern, $options: 'i' } },
+    { email: { $regex: pattern, $options: 'i' } },
+  ];
+  return filter;
+}
+
+function userSort(sort: ListAdminUsersQueryDto['sort']): Record<string, 1 | -1> {
+  if (sort === 'name') return { name: 1 };
+  if (sort === 'activity') return { lastSeenAt: -1, createdAt: -1 };
+  return { createdAt: -1 };
+}
+
+function cardImage(images?: { small?: string; medium?: string }[]) {
+  const first = images?.[0];
+  return first?.small || first?.medium;
 }

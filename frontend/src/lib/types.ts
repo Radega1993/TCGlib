@@ -94,6 +94,7 @@ export type PublicUser = {
   id: string;
   email: string;
   name: string;
+  alias?: string;
   picture?: string;
   publicSlug?: string;
   shareEnabled: boolean;
@@ -128,19 +129,54 @@ export type AdminUser = {
   id: string;
   email: string;
   name: string;
+  alias?: string;
   picture?: string;
   publicSlug?: string;
   shareEnabled: boolean;
   blocked: boolean;
   admin: boolean;
   createdAt?: string;
+  lastSeenAt?: string;
   owned: AdminListCount;
   wanted: AdminListCount;
 };
 
+export type AdminCardRank = {
+  externalId: number;
+  name: string;
+  code?: string;
+  image?: string;
+  users: number;
+  copies: number;
+};
+
+export type AdminViewRank = {
+  externalId: number;
+  name: string;
+  code?: string;
+  image?: string;
+  views: number;
+};
+
+export type AdminDayPoint = {
+  day: string;
+  label: string;
+  count: number;
+};
+
 export type AdminOverview = {
-  users: { total: number; blocked: number; sharing: number };
+  users: {
+    total: number;
+    blocked: number;
+    sharing: number;
+    activeToday: number;
+    activeWeek: number;
+    activeMonth: number;
+    newWeek: number;
+    newMonth: number;
+  };
   sessions: number;
+  activity: { averageMs: number; users: number };
   library: { owned: AdminListCount; wanted: AdminListCount };
   catalog: { sets: number; products: number; cards: number; sealed: number };
   sync: {
@@ -152,6 +188,12 @@ export type AdminOverview = {
     products: number;
     error?: string;
   } | null;
+  signups: AdminDayPoint[];
+  visits: AdminDayPoint[];
+  wanted: AdminCardRank[];
+  owned: AdminCardRank[];
+  searched: { term: string; count: number }[];
+  viewed: AdminViewRank[];
 };
 
 export type ShareQuery = CatalogQuery & {

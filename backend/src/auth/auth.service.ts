@@ -1,8 +1,11 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { EnvConfig } from '../config/env.validation';
+import { displayName, parseAlias } from './alias';
+import { madridDay } from './madrid-time';
+import { ActivityDay } from './schemas/activity-day.schema';
 import { LoginCode } from './schemas/login-code.schema';
 import { Session } from './schemas/session.schema';
 import { User } from './schemas/user.schema';
@@ -35,6 +38,7 @@ export class AuthService {
     @InjectModel(User.name) private readonly users: Model<User>,
     @InjectModel(Session.name) private readonly sessions: Model<Session>,
     @InjectModel(LoginCode.name) private readonly loginCodes: Model<LoginCode>,
+    @InjectModel(ActivityDay.name) private readonly activityDays: Model<ActivityDay>,
   ) {}
 
   isGoogleConfigured() {
@@ -135,6 +139,7 @@ export class AuthService {
 
     const user = await this.users.findById(session.userId).lean();
     if (!user || user.blocked) return null;
+    await this.touchActivity(session, user._id);
     return this.toPublicUser(user);
   }
 
@@ -142,14 +147,25 @@ export class AuthService {
     if (!isPublicSlug(slug)) return null;
     const user = await this.users
       .findOne({ publicSlug: slug, shareEnabled: true })
-      .select('name picture')
+      .select('name alias picture')
       .lean();
     if (!user) return null;
     return {
       id: user._id.toString(),
-      name: user.name,
+      name: displayName(user),
       picture: user.picture,
     };
+  }
+
+  async setAlias(userId: string, alias: string) {
+    const user = await this.users.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('La sesión no es válida');
+    }
+    const next = parseAlias(alias);
+    user.set('alias', next ?? undefined);
+    await user.save();
+    return this.toPublicUser(user);
   }
 
   async setShare(userId: string, enabled: boolean) {
@@ -185,6 +201,7 @@ export class AuthService {
     _id: { toString(): string };
     email: string;
     name: string;
+    alias?: string | null;
     picture?: string;
     publicSlug?: string;
     shareEnabled?: boolean;
@@ -193,6 +210,7 @@ export class AuthService {
       id: user._id.toString(),
       email: user.email,
       name: user.name,
+      alias: user.alias || undefined,
       picture: user.picture,
       publicSlug: user.publicSlug,
       shareEnabled: Boolean(user.shareEnabled),
@@ -277,6 +295,34 @@ export class AuthService {
 
   private get secret() {
     return this.config.get('AUTH_STATE_SECRET');
+  }
+
+  private async touchActivity(
+    session: { _id: Types.ObjectId; lastSeenAt?: Date },
+    userId: Types.ObjectId,
+  ) {
+    const now = Date.now();
+    const previous = session.lastSeenAt?.getTime() ?? 0;
+    if (previous && now - previous < 5 * 60 * 1000) return;
+    const gap = previous ? now - previous : 0;
+    const activeMs = gap > 0 && gap <= 30 * 60 * 1000 ? gap : 0;
+    const seen = new Date(now);
+    try {
+      await Promise.all([
+        this.sessions.updateOne(
+          { _id: session._id },
+          { $set: { lastSeenAt: seen }, $inc: { activeMs } },
+        ),
+        this.users.updateOne({ _id: userId }, { $set: { lastSeenAt: seen } }),
+        this.activityDays.updateOne(
+          { userId, day: madridDay(seen) },
+          { $setOnInsert: { userId, day: madridDay(seen) } },
+          { upsert: true },
+        ),
+      ]);
+    } catch {
+      // La actividad no debe impedir el acceso.
+    }
   }
 
   private get adminEmails() {

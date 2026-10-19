@@ -13,6 +13,23 @@ export function formatCount(value: number) {
   return counts.format(value);
 }
 
+export function displayName(user: { name: string; alias?: string | null }) {
+  const alias = user.alias?.trim();
+  return alias || user.name;
+}
+
+export function formatDuration(ms: number) {
+  const minutes = Math.round(ms / 60000);
+  if (minutes < 1) return "menos de 1 min";
+  if (minutes < 60) return `${formatCount(minutes)} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (hours < 48) return rest ? `${formatCount(hours)} h ${formatCount(rest)} min` : `${formatCount(hours)} h`;
+  const days = Math.floor(hours / 24);
+  const remHours = hours % 24;
+  return remHours ? `${formatCount(days)} d ${formatCount(remHours)} h` : `${formatCount(days)} d`;
+}
+
 export function collectionLabel(cards: number, copies: number) {
   return `${formatCount(cards)} ${cards === 1 ? "carta" : "cartas"} · ${formatCount(copies)} ${copies === 1 ? "copia" : "copias"}`;
 }

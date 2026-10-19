@@ -6,7 +6,7 @@ import { readSessionToken } from "@/lib/session";
 
 export async function updateAdminUser(
   id: string,
-  patch: { name?: string; shareEnabled?: boolean },
+  patch: { alias?: string; shareEnabled?: boolean },
 ) {
   return adminWrite(`/api/admin/users/${encodeURIComponent(id)}`, "PUT", patch);
 }
@@ -35,7 +35,7 @@ async function adminWrite(path: string, method: "PUT" | "DELETE", body?: unknown
   if (!response.ok) {
     return { ok: false as const, error: await readError(response) };
   }
-  revalidatePath("/admin", "page");
+  revalidatePath("/admin", "layout");
   revalidatePath("/", "layout");
   return { ok: true as const };
 }

@@ -1,9 +1,11 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useState } from "react";
 import { Sidebar } from "@/components/sidebar";
+import { displayName } from "@/lib/format";
 import { PublicUser } from "@/lib/types";
 
 export function AppChrome({ user }: { user: PublicUser | null }) {
@@ -70,12 +72,19 @@ function Chrome({
         >
           Menú
         </button>
-        <Link href="/" className="text-base font-semibold tracking-tight">
-          TCGlib
+        <Link href="/" className="flex min-w-0 justify-center">
+          <Image
+            src="/logo-mark.png"
+            alt="TCGlib"
+            width={640}
+            height={578}
+            priority
+            className="h-10 w-auto"
+          />
         </Link>
         {user ? (
           <Link href="/biblioteca" className="max-w-28 truncate text-sm font-medium">
-            {user.name}
+            {displayName(user)}
           </Link>
         ) : (
           <Link

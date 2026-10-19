@@ -15,7 +15,13 @@ export class User {
   name: string;
 
   @Prop()
+  alias?: string;
+
+  @Prop()
   picture?: string;
+
+  @Prop()
+  lastSeenAt?: Date;
 
   @Prop({ unique: true, sparse: true })
   publicSlug?: string;
@@ -28,3 +34,6 @@ export class User {
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
+
+UserSchema.index({ lastSeenAt: -1 });
+UserSchema.index({ createdAt: -1 });

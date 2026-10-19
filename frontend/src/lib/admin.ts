@@ -6,10 +6,17 @@ export async function getAdminOverview() {
   return adminGet<AdminOverview>("/api/admin/overview");
 }
 
-export async function getAdminUsers(query: { q?: string; page: number }) {
+export async function getAdminUsers(query: {
+  q?: string;
+  page: number;
+  status?: string;
+  sort?: string;
+}) {
   const params = new URLSearchParams();
   if (query.q) params.set("q", query.q);
   if (query.page > 1) params.set("page", String(query.page));
+  if (query.status) params.set("status", query.status);
+  if (query.sort && query.sort !== "recent") params.set("sort", query.sort);
   const search = params.toString();
   return adminGet<{ data: AdminUser[]; total: number; page: number; limit: number }>(
     `/api/admin/users${search ? `?${search}` : ""}`,

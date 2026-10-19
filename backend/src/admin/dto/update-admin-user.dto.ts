@@ -1,13 +1,12 @@
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class UpdateAdminUserDto {
   @IsOptional()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => (typeof value === 'string' ? value : value))
   @IsString()
-  @MinLength(1)
-  @MaxLength(80)
-  name?: string;
+  @MaxLength(24)
+  alias?: string;
 
   @IsOptional()
   @IsBoolean()

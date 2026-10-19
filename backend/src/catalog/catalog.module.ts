@@ -7,6 +7,7 @@ import { ProductsService } from './products/products.service';
 import { CardSet, CardSetSchema } from './schemas/card-set.schema';
 import { Product, ProductSchema } from './schemas/product.schema';
 import { SyncRun, SyncRunSchema } from './schemas/sync-run.schema';
+import { UsageEvent, UsageEventSchema } from './schemas/usage-event.schema';
 import { Tcg, TcgSchema } from './schemas/tcg.schema';
 import { SetsController } from './sets/sets.controller';
 import { SetsService } from './sets/sets.service';
@@ -22,6 +23,7 @@ import { TcgsService } from './tcgs/tcgs.service';
       { name: CardSet.name, schema: CardSetSchema },
       { name: Product.name, schema: ProductSchema },
       { name: SyncRun.name, schema: SyncRunSchema },
+      { name: UsageEvent.name, schema: UsageEventSchema },
     ]),
   ],
   controllers: [

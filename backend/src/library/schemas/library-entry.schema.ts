@@ -25,3 +25,4 @@ LibraryEntrySchema.index(
   { userId: 1, list: 1, productExternalId: 1 },
   { unique: true },
 );
+LibraryEntrySchema.index({ list: 1, productExternalId: 1 });

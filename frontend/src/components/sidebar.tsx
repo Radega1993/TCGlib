@@ -1,7 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
+import { AliasForm } from "@/components/alias-form";
 import { SharePanel } from "@/components/share-panel";
+import { displayName } from "@/lib/format";
 import { PublicUser } from "@/lib/types";
 
 const LINKS = [
@@ -28,8 +31,15 @@ export function Sidebar({
       className={`${open ? "max-md:translate-x-0" : "max-md:-translate-x-full"} fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-stone-200 bg-[#f6f3ee] px-3 py-4 transition-transform md:sticky md:top-0 md:z-auto md:h-screen md:w-full`}
     >
       <div className="flex items-center justify-between px-2">
-        <Link href="/" className="text-lg font-semibold tracking-tight" onClick={onClose}>
-          TCGlib
+        <Link href="/" className="block min-w-0 px-1" onClick={onClose}>
+          <Image
+            src="/logo-mark.png"
+            alt="TCGlib"
+            width={640}
+            height={578}
+            priority
+            className="h-24 w-auto"
+          />
         </Link>
         <button
           type="button"
@@ -101,7 +111,7 @@ export function Sidebar({
                 />
               ) : null}
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-stone-900">{user.name}</p>
+                <p className="truncate text-sm font-medium text-stone-900">{displayName(user)}</p>
                 <p className="truncate text-xs text-stone-500">{user.email}</p>
               </div>
             </div>
@@ -123,6 +133,7 @@ export function Sidebar({
             Entrar
           </Link>
         )}
+        {user ? <AliasForm alias={user.alias ?? ""} /> : null}
       </div>
     </aside>
   );

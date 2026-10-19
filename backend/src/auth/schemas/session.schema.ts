@@ -13,8 +13,15 @@ export class Session {
 
   @Prop({ required: true })
   expiresAt: Date;
+
+  @Prop()
+  lastSeenAt?: Date;
+
+  @Prop({ default: 0 })
+  activeMs: number;
 }
 
 export const SessionSchema = SchemaFactory.createForClass(Session);
 
 SessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+SessionSchema.index({ lastSeenAt: -1 });

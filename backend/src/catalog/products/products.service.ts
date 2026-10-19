@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, PipelineStage } from 'mongoose';
 import { ONE_PIECE_SLUG } from '../sync/catalog-sync.service';
 import { Product } from '../schemas/product.schema';
+import { UsageEvent } from '../schemas/usage-event.schema';
 import { ListProductsQueryDto } from './dto/list-products.query';
 import {
   buildProductFilter,
@@ -21,12 +22,18 @@ const COST_ORDER = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
 export class ProductsService {
   constructor(
     @InjectModel(Product.name) private readonly productModel: Model<Product>,
+    @InjectModel(UsageEvent.name) private readonly usage: Model<UsageEvent>,
   ) {}
 
   async findAll(query: ListProductsQueryDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 24;
     const filter = buildProductFilter(query);
+
+    const term = query.q?.trim().replace(/\s+/g, ' ').slice(0, 80).toLowerCase();
+    if (term && term.length >= 2 && page === 1 && query.type !== 'sealed') {
+      await this.recordUsage('search', term);
+    }
 
     const [data, total] = await Promise.all([
       this.productModel
@@ -45,6 +52,9 @@ export class ProductsService {
     const data = await this.productModel.findOne({ externalId }).lean();
     if (!data) {
       throw new NotFoundException(`No hay un producto con id ${externalId}`);
+    }
+    if (data.type === 'card') {
+      await this.recordUsage('view', String(data.externalId));
     }
     return { data };
   }
@@ -137,6 +147,14 @@ export class ProductsService {
         cost: orderValues(ids(result?.cost), COST_ORDER),
       },
     };
+  }
+
+  private async recordUsage(kind: 'search' | 'view', key: string) {
+    try {
+      await this.usage.create({ kind, key });
+    } catch {
+      // Las métricas no deben tumbar el catálogo.
+    }
   }
 
   async countByType(tcgSlug = ONE_PIECE_SLUG) {
