@@ -1,4 +1,5 @@
 import { Transform, Type } from 'class-transformer';
+import { PRODUCT_SORTS } from '../product-filter';
 import {
   ArrayMaxSize,
   IsArray,
@@ -104,6 +105,10 @@ export class ListProductsQueryDto {
   @IsString({ each: true })
   @MaxLength(8, { each: true })
   cost?: string[];
+
+  @IsOptional()
+  @IsIn(PRODUCT_SORTS)
+  sort?: (typeof PRODUCT_SORTS)[number];
 
   @IsOptional()
   @Type(() => Number)

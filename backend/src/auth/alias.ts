@@ -16,3 +16,11 @@ export function parseAlias(value: string) {
 export function displayName(user: { name: string; alias?: string | null }) {
   return user.alias?.trim() || user.name;
 }
+
+export function publicPlayerName(user: { name: string; alias?: string | null }) {
+  const alias = user.alias?.trim();
+  if (alias && !alias.includes('@')) return alias;
+  const name = user.name.trim();
+  if (!name || name.includes('@')) return 'Jugador';
+  return name;
+}

@@ -399,6 +399,7 @@ function toCardFilter(query: ShareCollectionQueryDto): ProductFilterInput {
     cardType: query.cardType,
     attribute: query.attribute,
     cost: query.cost,
+    sort: query.sort,
   };
 }
 

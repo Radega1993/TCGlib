@@ -1,4 +1,4 @@
-import { CatalogQuery, LibraryList, ShareQuery, ShareTab } from "@/lib/types";
+import { CatalogQuery, CatalogSort, LibraryList, ShareQuery, ShareTab } from "@/lib/types";
 
 const LIST_LIMIT = {
   color: 8,
@@ -23,6 +23,7 @@ export function parseCatalogQuery(
     cardType: list(raw.cardType, LIST_LIMIT.cardType),
     attribute: list(raw.attribute, LIST_LIMIT.attribute),
     cost: list(raw.cost, LIST_LIMIT.cost),
+    sort: catalogSort(first(raw.sort)),
     page: Number.isInteger(page) && page > 0 ? page : 1,
   };
 }
@@ -77,7 +78,8 @@ export function sameFilters(left: CatalogQuery, right: CatalogQuery) {
     sameList(left.rarity, right.rarity) &&
     sameList(left.cardType, right.cardType) &&
     sameList(left.attribute, right.attribute) &&
-    sameList(left.cost, right.cost)
+    sameList(left.cost, right.cost) &&
+    left.sort === right.sort
   );
 }
 
@@ -90,6 +92,7 @@ function filterParams(query: CatalogQuery, page: number) {
   setList(params, "cardType", query.cardType);
   setList(params, "attribute", query.attribute);
   setList(params, "cost", query.cost);
+  if (query.sort && query.sort !== "set") params.set("sort", query.sort);
   if (page > 1) params.set("page", String(page));
   return params;
 }
@@ -151,6 +154,11 @@ function list(value: string | string[] | undefined, max: number) {
         .filter(Boolean),
     ),
   ].slice(0, max);
+}
+
+function catalogSort(value: string | undefined): CatalogSort {
+  if (value === "color" || value === "rarity" || value === "set") return value;
+  return "set";
 }
 
 function first(value: string | string[] | undefined) {

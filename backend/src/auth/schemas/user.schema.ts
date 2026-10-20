@@ -32,7 +32,7 @@ export class User {
   @Prop({ unique: true, sparse: true })
   tradeSlug?: string;
 
-  @Prop({ default: false })
+  @Prop({ default: true })
   shareEnabled: boolean;
 
   @Prop({ default: false })

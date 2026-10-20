@@ -73,6 +73,18 @@ export function isCommunityList(deck: { lines: { quantity: number }[] }) {
   return copies >= 48 && copies <= 52;
 }
 
+export function leadersNeedingDecks(
+  leaders: string[],
+  stored: { leaderCode: string }[],
+  limit = VARIANTS_PER_LEADER,
+) {
+  const counts = new Map<string, number>();
+  for (const deck of stored) {
+    counts.set(deck.leaderCode, (counts.get(deck.leaderCode) ?? 0) + 1);
+  }
+  return leaders.filter((code) => (counts.get(code) ?? 0) < limit);
+}
+
 export function pickNewVariants(
   incoming: CommunityDeck[],
   stored: { slug: string; fingerprint: string; leaderCode: string }[],

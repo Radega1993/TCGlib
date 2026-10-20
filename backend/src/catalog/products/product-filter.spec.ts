@@ -1,4 +1,9 @@
-import { buildProductFilter, orderValues } from './product-filter';
+import {
+  buildProductFilter,
+  orderValues,
+  productSort,
+  productSortFields,
+} from './product-filter';
 
 describe('buildProductFilter', () => {
   it('matches a color inside multicolor cards', () => {
@@ -30,6 +35,17 @@ describe('buildProductFilter', () => {
     const filter = buildProductFilter({ q: 'a.b' });
     const clause = filter.$or as { name: { $regex: string } }[];
     expect(clause[0].name.$regex).toBe('a\\.b');
+  });
+});
+
+describe('productSort', () => {
+  it('ordena por edición, color o rareza y deja el color y la rareza para el final si no están en la lista', () => {
+    expect(productSort('set')).toEqual({ 'set.code': 1, code: 1, name: 1 });
+    expect(productSortFields('set')).toEqual([]);
+    expect(productSort('color').colorRank).toBe(1);
+    expect(productSort('rarity').rarityRank).toBe(1);
+    expect(productSortFields('color')).toHaveLength(1);
+    expect(productSortFields('rarity')).toHaveLength(1);
   });
 });
 

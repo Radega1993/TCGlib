@@ -20,6 +20,8 @@ import {
   SuggestedDeck,
   SuggestedDeckSchema,
 } from './schemas/suggested-deck.schema';
+import { PlayersController } from './players.controller';
+import { PlayersService } from './players.service';
 import { SuggestedDecksService } from './suggested-decks.service';
 
 @Module({
@@ -39,8 +41,9 @@ import { SuggestedDecksService } from './suggested-decks.service';
     CollectionController,
     DeckController,
     DeckPublicController,
+    PlayersController,
   ],
-  providers: [LibraryService, CollectionService, DeckService, SuggestedDecksService],
+  providers: [LibraryService, CollectionService, DeckService, SuggestedDecksService, PlayersService],
   exports: [SuggestedDecksService],
 })
 export class LibraryModule {}

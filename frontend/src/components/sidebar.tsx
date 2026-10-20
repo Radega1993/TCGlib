@@ -12,6 +12,7 @@ const LINKS: {
   match: (path: string) => boolean;
 }[] = [
   { href: "/", label: "Catálogo", icon: "catalog", match: (path) => path === "/" || path.startsWith("/products") },
+  { href: "/jugadores", label: "Jugadores", icon: "players", match: (path) => path.startsWith("/jugadores") },
   { href: "/biblioteca", label: "Biblioteca", icon: "library", match: (path) => path.startsWith("/biblioteca") },
   { href: "/progreso", label: "Progreso", icon: "progress", match: (path) => path.startsWith("/progreso") },
   { href: "/deseados", label: "Deseados", icon: "wanted", match: (path) => path.startsWith("/deseados") },
@@ -71,7 +72,10 @@ export function Sidebar({
       <nav aria-label="One Piece" className="mt-3 flex flex-col gap-1">
         {LINKS.map((link) => {
           const current = pathname ? link.match(pathname) : false;
-          const href = user || link.href === "/" ? link.href : `/entrar?return=${encodeURIComponent(link.href)}`;
+          const href =
+            user || link.href === "/" || link.href === "/jugadores"
+              ? link.href
+              : `/entrar?return=${encodeURIComponent(link.href)}`;
           return (
             <Link
               key={link.href}
@@ -113,7 +117,7 @@ export function Sidebar({
   );
 }
 
-type NavIconName = "catalog" | "library" | "progress" | "wanted" | "trade" | "decks" | "admin";
+type NavIconName = "catalog" | "players" | "library" | "progress" | "wanted" | "trade" | "decks" | "admin";
 
 function NavIcon({ name }: { name: NavIconName }) {
   return (
@@ -133,6 +137,14 @@ function NavIcon({ name }: { name: NavIconName }) {
           <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5" />
           <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5" />
           <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5" />
+        </>
+      ) : null}
+      {name === "players" ? (
+        <>
+          <circle cx="9" cy="9" r="2.5" />
+          <circle cx="16" cy="10" r="2" />
+          <path d="M4.5 18.5c.6-2.4 2.4-3.5 4.5-3.5s3.9 1.1 4.5 3.5" />
+          <path d="M13 15.2c1.4-.2 2.8.4 3.6 2.3" />
         </>
       ) : null}
       {name === "library" ? (

@@ -11,11 +11,9 @@ export function LibraryAlbum({
   entries: LibraryEntry[];
   returnTo: string;
 }) {
-  const cards = [...entries].sort(bySetThenCode);
-
   return (
     <ul className="grid grid-cols-3 gap-2 lg:grid-cols-4">
-      {cards.map((entry) => {
+      {entries.map((entry) => {
         const forTrade = entry.forTrade ?? 0;
         const copies = entry.quantity === 1 ? "1 copia" : `${formatCount(entry.quantity)} copias`;
         const trade = forTrade > 0 ? `, ${formatCount(forTrade)} en intercambio` : "";
@@ -54,16 +52,5 @@ export function LibraryAlbum({
         );
       })}
     </ul>
-  );
-}
-
-function bySetThenCode(left: LibraryEntry, right: LibraryEntry) {
-  const set = (left.product.set.code ?? "").localeCompare(right.product.set.code ?? "", "es", {
-    numeric: true,
-  });
-  if (set !== 0) return set;
-  return (
-    (left.product.code ?? "").localeCompare(right.product.code ?? "", "es", { numeric: true }) ||
-    left.product.name.localeCompare(right.product.name, "es")
   );
 }

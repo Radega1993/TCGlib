@@ -27,7 +27,14 @@ export async function syncCatalog(slug: string) {
 }
 
 export async function refreshSuggestedDecks() {
-  return adminWrite<{ added: number; kept: number; total: number }>(
+  return adminWrite<{
+    added: number;
+    kept: number;
+    total: number;
+    leaders: number;
+    complete: number;
+    missed: number;
+  }>(
     "/api/admin/suggested-decks",
     "POST",
   );

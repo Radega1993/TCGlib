@@ -20,10 +20,17 @@ import {
   CardSet,
   CatalogFacets,
   CatalogQuery,
+  CatalogSort,
   LibraryList,
   ShareLayout,
   ShareTab,
 } from "@/lib/types";
+
+const SORTS: { id: CatalogSort; label: string }[] = [
+  { id: "set", label: "Ediciones" },
+  { id: "color", label: "Colores" },
+  { id: "rarity", label: "Rareza" },
+];
 
 export function Filters({
   sets,
@@ -85,6 +92,7 @@ export function Filters({
           cardType: [],
           attribute: [],
           cost: [],
+          sort: query.sort,
           page: 1,
         }),
       );
@@ -112,6 +120,26 @@ export function Filters({
             : undefined
         }
       />
+      <div className="flex flex-col gap-2">
+        <span className="text-xs font-medium uppercase tracking-wide text-stone-500">Orden</span>
+        <div className="grid grid-cols-3 gap-2" role="group" aria-label="Orden">
+          {SORTS.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              aria-pressed={query.sort === option.id}
+              onClick={() => apply({ sort: option.id })}
+              className={`inline-flex h-11 items-center justify-center rounded-xl px-2 text-sm font-medium ${
+                query.sort === option.id
+                  ? "bg-stone-900 text-white"
+                  : "bg-stone-50 text-stone-800 ring-1 ring-stone-300"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
       <button
         type="button"
         className="inline-flex h-11 items-center gap-2 rounded-xl bg-stone-100 px-3 text-sm font-medium text-stone-800"

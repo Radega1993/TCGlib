@@ -41,6 +41,7 @@ export function getProducts(query: CatalogQuery) {
       cardType: join(query.cardType),
       attribute: join(query.attribute),
       cost: join(query.cost),
+      sort: query.sort === "set" ? undefined : query.sort,
       page: query.page,
       limit: 24,
     })}`,

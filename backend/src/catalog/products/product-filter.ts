@@ -2,6 +2,12 @@ import { FilterQuery } from 'mongoose';
 import { ONE_PIECE_SLUG } from '../sync/catalog-sync.service';
 import { Product } from '../schemas/product.schema';
 
+export const PRODUCT_SORTS = ['set', 'color', 'rarity'] as const;
+export type ProductSort = (typeof PRODUCT_SORTS)[number];
+
+const COLOR_ORDER = ['Red', 'Green', 'Blue', 'Purple', 'Black', 'Yellow'];
+const RARITY_ORDER = ['C', 'UC', 'R', 'SR', 'SEC', 'L', 'PR', 'TR', 'DON!!'];
+
 export type ProductFilterInput = {
   tcg?: string;
   type?: string;
@@ -13,6 +19,7 @@ export type ProductFilterInput = {
   cardType?: string[];
   attribute?: string[];
   cost?: string[];
+  sort?: ProductSort;
 };
 
 export function buildProductFilter(
@@ -63,6 +70,59 @@ export function buildProductFilter(
   }
 
   return filter;
+}
+
+export function productSort(sort: ProductSort = 'set'): Record<string, 1> {
+  if (sort === 'color') {
+    return { colorRank: 1, 'set.code': 1, code: 1, name: 1 };
+  }
+  if (sort === 'rarity') {
+    return { rarityRank: 1, 'set.code': 1, code: 1, name: 1 };
+  }
+  return { 'set.code': 1, code: 1, name: 1 };
+}
+
+export function productSortFields(sort: ProductSort = 'set') {
+  if (sort === 'color') return [colorRank()];
+  if (sort === 'rarity') return [rarityRank()];
+  return [];
+}
+
+function colorRank() {
+  return {
+    $addFields: {
+      colorRank: ranked(
+        {
+          $trim: {
+            input: {
+              $arrayElemAt: [
+                { $split: [{ $ifNull: ['$color', ''] }, ';'] },
+                0,
+              ],
+            },
+          },
+        },
+        COLOR_ORDER,
+      ),
+    },
+  };
+}
+
+function rarityRank() {
+  return {
+    $addFields: {
+      rarityRank: ranked({ $ifNull: ['$rarity', ''] }, RARITY_ORDER),
+    },
+  };
+}
+
+function ranked(value: unknown, order: readonly string[]) {
+  return {
+    $let: {
+      vars: { rank: { $indexOfArray: [order, value] } },
+      in: { $cond: [{ $lt: ['$$rank', 0] }, order.length, '$$rank'] },
+    },
+  };
 }
 
 export function orderValues(values: string[], preferred: readonly string[]) {

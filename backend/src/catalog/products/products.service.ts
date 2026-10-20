@@ -10,6 +10,9 @@ import {
   escapeRegex,
   orderValues,
   ProductFilterInput,
+  ProductSort,
+  productSort,
+  productSortFields,
 } from './product-filter';
 
 const COLOR_ORDER = ['Red', 'Green', 'Blue', 'Purple', 'Black', 'Yellow'];
@@ -40,12 +43,7 @@ export class ProductsService {
     }
 
     const [data, total] = await Promise.all([
-      this.productModel
-        .find(filter)
-        .sort({ 'set.code': 1, code: 1, name: 1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .lean(),
+      this.sliceProducts(filter, query.sort ?? 'set', page, limit),
       this.productModel.countDocuments(filter),
     ]);
 
@@ -254,14 +252,13 @@ export class ProductsService {
     const products =
       matchedIds.length === 0
         ? []
-        : await this.productModel
-            .find(filter)
-            .collation({ locale: 'es' })
-            .sort({ name: 1, code: 1 })
-            .skip((current - 1) * limit)
-            .limit(limit)
-            .select('externalId name code rarity color set images')
-            .lean();
+        : await this.sliceProducts(
+            filter,
+            query.sort ?? 'set',
+            current,
+            limit,
+            'externalId name code rarity color set images',
+          );
 
     return { products, matchedIds, page: current, limit };
   }
@@ -317,6 +314,50 @@ export class ProductsService {
       name: set.name,
       code: set.code,
     }));
+  }
+
+  private sliceProducts(
+    filter: ReturnType<typeof buildProductFilter>,
+    sort: ProductSort,
+    page: number,
+    limit: number,
+    fields?: string,
+  ) {
+    const skip = (page - 1) * limit;
+    const ranks = productSortFields(sort);
+    if (ranks.length === 0) {
+      const query = this.productModel
+        .find(filter)
+        .sort(productSort(sort))
+        .skip(skip)
+        .limit(limit);
+      return (fields ? query.select(fields) : query).lean();
+    }
+
+    const pipeline: PipelineStage[] = [
+      { $match: filter },
+      ...(ranks as PipelineStage[]),
+      { $sort: productSort(sort) },
+      { $skip: skip },
+      { $limit: limit },
+      { $unset: ['colorRank', 'rarityRank'] },
+    ];
+    if (fields) {
+      pipeline.push({
+        $project: Object.fromEntries(fields.split(' ').map((field) => [field, 1])),
+      });
+    }
+    return this.productModel
+      .aggregate(pipeline)
+      .collation({ locale: 'es', numericOrdering: true });
+  }
+
+  leaderCodes() {
+    return this.productModel.distinct('code', {
+      tcgSlug: ONE_PIECE_SLUG,
+      type: 'card',
+      cardType: 'Leader',
+    });
   }
 
   progressCards() {

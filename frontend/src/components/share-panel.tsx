@@ -30,12 +30,12 @@ export function SharePanel({ enabled, slug }: { enabled: boolean; slug?: string 
   return (
     <div className="rounded-xl bg-white p-3 ring-1 ring-stone-200">
       <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
-        Enlace público
+        Perfil público
       </p>
       {enabled && slug ? (
         <div className="mt-2 flex flex-col gap-3">
           <p className="text-xs leading-5 text-stone-500">
-            Muestra la biblioteca, el intercambio y lo que buscas.
+            Apareces en Jugadores. Quien entre ve la biblioteca, el intercambio y los deseados. El email no se muestra.
           </p>
           <p className="truncate text-xs text-stone-500">/u/{slug}</p>
           <div className="flex gap-2">
@@ -61,18 +61,23 @@ export function SharePanel({ enabled, slug }: { enabled: boolean; slug?: string 
             onClick={() => run(() => setShareEnabled(false))}
             className="inline-flex h-11 items-center justify-center rounded-xl px-3 text-sm font-medium text-stone-700 ring-1 ring-stone-300 disabled:text-stone-300"
           >
-            Ocultar
+            Pasar a privado
           </button>
         </div>
       ) : (
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => run(() => setShareEnabled(true))}
-          className="mt-2 inline-flex h-11 w-full items-center justify-center rounded-xl bg-stone-900 px-3 text-sm font-medium text-white disabled:bg-stone-400"
-        >
-          Crear enlace
-        </button>
+        <div className="mt-2 flex flex-col gap-3">
+          <p className="text-xs leading-5 text-stone-500">
+            En privado no apareces en Jugadores y el enlace deja de funcionar.
+          </p>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => run(() => setShareEnabled(true))}
+            className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-stone-900 px-3 text-sm font-medium text-white disabled:bg-stone-400"
+          >
+            Hacer público
+          </button>
+        </div>
       )}
     </div>
   );

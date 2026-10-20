@@ -20,11 +20,17 @@ export function SuggestedDecks({ total }: { total: number }) {
         setError(result.ok ? "No se pudo leer la lista pública de mazos." : result.error);
         return;
       }
+      const coverage = `${formatCount(result.data.complete)} de ${formatCount(result.data.leaders)} líderes tienen 3 listas.`;
       setMessage(
         result.data.added
-          ? `Añadidos ${formatCount(result.data.added)}. Los ${formatCount(result.data.kept)} que ya estaban no se han tocado.`
-          : "No hay mazos nuevos. Los que ya estaban siguen igual.",
+          ? `Añadidos ${formatCount(result.data.added)}. ${coverage} Los que ya estaban no se han tocado.`
+          : `No hay mazos nuevos. ${coverage}`,
       );
+      if (result.data.missed > 0) {
+        setError(
+          `No se pudieron leer ${formatCount(result.data.missed)} líderes. Vuelve a actualizar para completarlos.`,
+        );
+      }
       router.refresh();
     });
   }
@@ -35,7 +41,7 @@ export function SuggestedDecks({ total }: { total: number }) {
         <div>
           <h2 className="text-sm font-semibold text-stone-900">Mazos de la comunidad</h2>
           <p className="mt-1 text-sm text-stone-500">
-            {formatCount(total)} guardados. Añade hasta 3 listas de cada líder y no cambia las que ya estaban.
+            {formatCount(total)} guardados. Busca 3 listas de cada líder del catálogo y no cambia las que ya estaban.
           </p>
         </div>
         <button

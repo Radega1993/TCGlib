@@ -1,5 +1,6 @@
 import {
   isCommunityList,
+  leadersNeedingDecks,
   pickNewVariants,
   readCommunityDeck,
 } from './community-decks';
@@ -62,6 +63,21 @@ describe('isCommunityList', () => {
     full.lines = [{ code: 'OP01-001', quantity: 50 }];
     expect(isCommunityList(full)).toBe(true);
     expect(isCommunityList(deck('corto', 'OP12-040', 1))).toBe(false);
+  });
+});
+
+describe('leadersNeedingDecks', () => {
+  it('pide líderes del catálogo que aún no tienen tres listas', () => {
+    const needing = leadersNeedingDecks(
+      ['OP16-079', 'OP12-040', 'OP12-020'],
+      [
+        { leaderCode: 'OP12-040' },
+        { leaderCode: 'OP12-040' },
+        { leaderCode: 'OP12-040' },
+        { leaderCode: 'OP12-020' },
+      ],
+    );
+    expect(needing).toEqual(['OP16-079', 'OP12-020']);
   });
 });
 

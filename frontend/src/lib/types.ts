@@ -428,6 +428,8 @@ export type PublicDeck = {
   summary: DeckSummaryStats;
 };
 
+export type CatalogSort = "set" | "color" | "rarity";
+
 export type CatalogQuery = {
   q?: string;
   set?: string;
@@ -436,5 +438,6 @@ export type CatalogQuery = {
   cardType: string[];
   attribute: string[];
   cost: string[];
+  sort: CatalogSort;
   page: number;
 };

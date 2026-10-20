@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { EnvConfig } from '../config/env.validation';
-import { displayName, parseAlias } from './alias';
+import { parseAlias, publicPlayerName } from './alias';
 import { madridDay } from './madrid-time';
 import { ActivityDay } from './schemas/activity-day.schema';
 import { LoginCode } from './schemas/login-code.schema';
@@ -161,7 +161,7 @@ export class AuthService {
     if (!view) return null;
     return {
       id: user._id.toString(),
-      name: displayName(user),
+      name: publicPlayerName(user),
       picture: user.picture,
       view,
     } as const;
