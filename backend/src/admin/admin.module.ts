@@ -6,6 +6,7 @@ import { ActivityDay, ActivityDaySchema } from '../auth/schemas/activity-day.sch
 import { Session, SessionSchema } from '../auth/schemas/session.schema';
 import { User, UserSchema } from '../auth/schemas/user.schema';
 import { CatalogModule } from '../catalog/catalog.module';
+import { LibraryModule } from '../library/library.module';
 import { SyncRun, SyncRunSchema } from '../catalog/schemas/sync-run.schema';
 import { UsageEvent, UsageEventSchema } from '../catalog/schemas/usage-event.schema';
 import {
@@ -19,6 +20,7 @@ import { AdminService } from './admin.service';
   imports: [
     AuthModule,
     CatalogModule,
+    LibraryModule,
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
       { name: Session.name, schema: SessionSchema },

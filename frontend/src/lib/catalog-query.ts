@@ -1,4 +1,4 @@
-import { CatalogQuery, ShareQuery, ShareTab } from "@/lib/types";
+import { CatalogQuery, LibraryList, ShareQuery, ShareTab } from "@/lib/types";
 
 const LIST_LIMIT = {
   color: 8,
@@ -39,14 +39,29 @@ export function parseShareQuery(
   return {
     ...parseCatalogQuery(raw),
     tab: shareTab(first(raw.tab)),
+    view: first(raw.vista) === "lista" ? "list" : "album",
   };
 }
 
 export function shareHref(slug: string, query: ShareQuery) {
   const params = filterParams(query, query.page);
   if (query.tab) params.set("tab", query.tab);
+  if (query.view === "list") params.set("vista", "lista");
   const search = params.toString();
   return search ? `/u/${slug}?${search}` : `/u/${slug}`;
+}
+
+export function libraryHref(list: LibraryList, query: CatalogQuery, page = query.page) {
+  const params = filterParams(query, page);
+  const path = list === "wanted" ? "/deseados" : "/biblioteca";
+  const search = params.toString();
+  return search ? `${path}?${search}` : path;
+}
+
+export function libraryApiQuery(list: LibraryList, query?: CatalogQuery) {
+  const params = query ? filterParams({ ...query, page: 1 }, 1) : new URLSearchParams();
+  params.set("list", list);
+  return params;
 }
 
 function shareTab(value: string | undefined): ShareTab | undefined {

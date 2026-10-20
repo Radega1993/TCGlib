@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Post,
   Put,
   Query,
   UseGuards,
@@ -25,6 +26,18 @@ export class AdminController {
   @Get('overview')
   overview() {
     return this.adminService.overview().then((data) => ({ data }));
+  }
+
+  @Post('sync/:slug')
+  sync(@Param('slug') slug: string) {
+    return { data: this.adminService.startSync(slug) };
+  }
+
+  @Post('suggested-decks')
+  suggestedDecks() {
+    return this.adminService
+      .refreshSuggestedDecks()
+      .then((data) => ({ data }));
   }
 
   @Get('users')

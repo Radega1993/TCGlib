@@ -1,8 +1,11 @@
 import { cookies } from "next/headers";
 import { cache } from "react";
 import { serverApiUrl } from "@/lib/api";
-import { shareHref } from "@/lib/catalog-query";
+import { libraryApiQuery, shareHref } from "@/lib/catalog-query";
 import {
+  CardSet,
+  CatalogFacets,
+  CatalogQuery,
   LibraryCounts,
   LibraryEntry,
   LibraryList,
@@ -34,24 +37,29 @@ export async function getAuthStatus() {
   return { google: Boolean(body.data?.google), online: true };
 }
 
-export async function getLibrary(list: LibraryList) {
+export async function getLibrary(list: LibraryList, query?: CatalogQuery) {
   const token = await readSessionToken();
   if (!token) return null;
-  const response = await fetch(`${serverApiUrl()}/api/me/library?list=${list}`, {
-    headers: { authorization: `Bearer ${token}` },
-    cache: "no-store",
-  });
+  const response = await fetch(
+    `${serverApiUrl()}/api/me/library?${libraryApiQuery(list, query)}`,
+    {
+      headers: { authorization: `Bearer ${token}` },
+      cache: "no-store",
+    },
+  );
   if (response.status === 401) return null;
   if (!response.ok) throw new Error("library");
   return (await response.json()) as {
     data: LibraryEntry[];
     list: LibraryList;
     counts: LibraryCounts;
+    facets: CatalogFacets;
+    sets: CardSet[];
   };
 }
 
 export async function getSharedCollection(slug: string, query: ShareQuery) {
-  const href = shareHref(slug, query);
+  const href = shareHref(slug, { ...query, view: undefined });
   const search = href.includes("?") ? href.slice(href.indexOf("?")) : "";
   const response = await fetch(
     `${serverApiUrl()}/api/share/${encodeURIComponent(slug)}${search}`,

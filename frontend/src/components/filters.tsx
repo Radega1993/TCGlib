@@ -4,8 +4,8 @@ import { useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { CardSearch } from "@/components/card-search";
 import {
-  activeFilterCount,
   catalogHref,
+  libraryHref,
   shareHref,
   toggleValue,
 } from "@/lib/catalog-query";
@@ -16,26 +16,33 @@ import {
   colorLabel,
   rarityLabel,
 } from "@/lib/format";
-import { CardSet, CatalogFacets, CatalogQuery, ShareTab } from "@/lib/types";
+import {
+  CardSet,
+  CatalogFacets,
+  CatalogQuery,
+  LibraryList,
+  ShareLayout,
+  ShareTab,
+} from "@/lib/types";
 
 export function Filters({
   sets,
   facets,
   query,
   share,
+  list,
 }: {
   sets: CardSet[];
   facets: CatalogFacets;
   query: CatalogQuery;
-  share?: { slug: string; tab: ShareTab };
+  share?: { slug: string; tab: ShareTab; view?: ShareLayout };
+  list?: LibraryList;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [text, setText] = useState(query.q ?? "");
   const [seenQ, setSeenQ] = useState(query.q);
-  const [open, setOpen] = useState(
-    activeFilterCount(query) - (query.q ? 1 : 0) > 0,
-  );
+  const [open, setOpen] = useState(false);
 
   if (seenQ !== query.q) {
     setSeenQ(query.q);
@@ -51,8 +58,9 @@ export function Filters({
     (query.set ? 1 : 0);
 
   function destination(next: CatalogQuery) {
-    if (!share) return catalogHref(next);
-    return shareHref(share.slug, { ...next, tab: share.tab });
+    if (share) return shareHref(share.slug, { ...next, tab: share.tab, view: share.view });
+    if (list) return libraryHref(list, next);
+    return catalogHref(next);
   }
 
   function apply(patch: Partial<CatalogQuery> = {}) {
@@ -94,7 +102,7 @@ export function Filters({
         onTextChange={setText}
         onSearch={() => apply()}
         suggestionHref={
-          share
+          share || list
             ? (suggestion) =>
                 destination({
                   ...query,
@@ -106,7 +114,7 @@ export function Filters({
       />
       <button
         type="button"
-        className="inline-flex h-11 items-center gap-2 rounded-xl bg-stone-100 px-3 text-sm font-medium text-stone-800 sm:hidden"
+        className="inline-flex h-11 items-center gap-2 rounded-xl bg-stone-100 px-3 text-sm font-medium text-stone-800"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
       >
@@ -116,9 +124,22 @@ export function Filters({
             {selected}
           </span>
         ) : null}
-        <span className="ml-auto text-stone-500">{open ? "Ocultar" : "Mostrar"}</span>
+        <svg
+          viewBox="0 0 20 20"
+          aria-hidden="true"
+          className={`ml-auto size-5 text-stone-500 ${open ? "rotate-180" : ""}`}
+        >
+          <path
+            d="M5 7.5 10 12.5 15 7.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
       </button>
-      <div className={`${open ? "flex" : "hidden"} flex-col gap-4 sm:flex`}>
+      <div className={`${open ? "flex" : "hidden"} flex-col gap-4`}>
         {facets.color.length > 0 ? (
         <FilterGroup label="Color" hint="incluye multicolor">
           {facets.color.map((color) => (

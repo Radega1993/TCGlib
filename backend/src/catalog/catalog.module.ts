@@ -40,6 +40,6 @@ import { TcgsService } from './tcgs/tcgs.service';
     SetsService,
     ProductsService,
   ],
-  exports: [ProductsService, SetsService],
+  exports: [ProductsService, SetsService, CatalogSyncService],
 })
 export class CatalogModule {}

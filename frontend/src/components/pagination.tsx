@@ -6,12 +6,14 @@ export function Pagination({
   total,
   limit,
   hrefFor,
+  onPage,
   label = "Paginación del catálogo",
 }: {
   page: number;
   total: number;
   limit: number;
-  hrefFor: (page: number) => string;
+  hrefFor?: (page: number) => string;
+  onPage?: (page: number) => void;
   label?: string;
 }) {
   const totalPages = Math.max(1, Math.ceil(total / limit));
@@ -31,7 +33,8 @@ export function Pagination({
       </p>
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
         <PageLink
-          href={hrefFor(current - 1)}
+          href={hrefFor?.(current - 1)}
+          onSelect={onPage ? () => onPage(current - 1) : undefined}
           disabled={current <= 1}
         >
           Anterior
@@ -40,7 +43,8 @@ export function Pagination({
           {current} / {formatCount(totalPages)}
         </p>
         <PageLink
-          href={hrefFor(current + 1)}
+          href={hrefFor?.(current + 1)}
+          onSelect={onPage ? () => onPage(current + 1) : undefined}
           disabled={current >= totalPages}
           align="end"
         >
@@ -53,11 +57,13 @@ export function Pagination({
 
 function PageLink({
   href,
+  onSelect,
   disabled,
   align = "start",
   children,
 }: {
-  href: string;
+  href?: string;
+  onSelect?: () => void;
   disabled: boolean;
   align?: "start" | "end";
   children: string;
@@ -74,9 +80,21 @@ function PageLink({
     );
   }
 
+  if (onSelect) {
+    return (
+      <button
+        type="button"
+        onClick={onSelect}
+        className={`${className} bg-white text-stone-900 ring-1 ring-stone-300`}
+      >
+        {children}
+      </button>
+    );
+  }
+
   return (
     <Link
-      href={href}
+      href={href ?? "#"}
       className={`${className} bg-white text-stone-900 ring-1 ring-stone-300`}
     >
       {children}

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { CatalogSync } from "@/components/catalog-sync";
+import { SuggestedDecks } from "@/components/suggested-decks";
 import { getAdminOverview } from "@/lib/admin";
 import { formatCount, formatDuration } from "@/lib/format";
 import { getCurrentUser } from "@/lib/session";
@@ -52,6 +54,19 @@ export async function AdminView() {
           Usuarios · {formatCount(overview.users.total)}
         </Link>
       </div>
+
+      <CatalogSync
+        games={overview.games.map((game) => ({
+          slug: game.slug,
+          name: game.name,
+          status: game.sync?.status ?? null,
+          detail: syncDetail(game.sync),
+          error: game.sync?.error,
+        }))}
+        cards={overview.catalog.cards}
+        sets={overview.catalog.sets}
+      />
+      <SuggestedDecks total={overview.suggestedDecks} />
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Metric label="Usuarios" value={formatCount(overview.users.total)} detail={`${formatCount(overview.users.blocked)} bloqueados · ${formatCount(overview.users.sharing)} con enlace`} />
@@ -215,6 +230,23 @@ function SearchRank({
     </article>
   );
 }
+
+function syncDetail(sync: AdminOverview["sync"]) {
+  if (!sync) return "Todavía no se ha actualizado.";
+  const moment = syncWhen.format(new Date(sync.finishedAt ?? sync.startedAt));
+  if (sync.status === "running") {
+    return `Actualizando… ${formatCount(sync.cards)} cartas guardadas.`;
+  }
+  if (sync.status === "failed") return `Fallida el ${moment}.`;
+  return `Completada el ${moment} · ${formatCount(sync.cards)} cartas · ${formatCount(sync.sealed)} sellados.`;
+}
+
+const syncWhen = new Intl.DateTimeFormat("es-ES", {
+  day: "numeric",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+});
 
 function syncValue(overview: AdminOverview) {
   if (!overview.sync) return "sin sincronizar";

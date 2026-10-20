@@ -1,20 +1,29 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { Filters } from "@/components/filters";
 import { LibraryAlbum } from "@/components/library-album";
 import { LibraryList } from "@/components/library-list";
 import { LibraryLayout, LibraryViewToggle } from "@/components/library-view-toggle";
+import { activeFilterCount, libraryHref, parseCatalogQuery } from "@/lib/catalog-query";
 import { collectionLabel, formatCount } from "@/lib/format";
 import { getCurrentUser, getLibrary } from "@/lib/session";
 import { LibraryList as LibraryName } from "@/lib/types";
 
-export async function CollectionView({ list }: { list: LibraryName }) {
-  const returnTo = list === "wanted" ? "/deseados" : "/biblioteca";
+export async function CollectionView({
+  list,
+  searchParams,
+}: {
+  list: LibraryName;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const query = parseCatalogQuery(await searchParams);
+  const returnTo = libraryHref(list, query);
   const user = await getCurrentUser();
   if (!user) redirect(`/entrar?return=${encodeURIComponent(returnTo)}`);
 
   let library: Awaited<ReturnType<typeof getLibrary>>;
   try {
-    library = await getLibrary(list);
+    library = await getLibrary(list, query);
   } catch {
     return (
       <p className="rounded-2xl bg-white px-4 py-8 text-sm text-stone-700 ring-1 ring-rose-200">
@@ -27,6 +36,9 @@ export async function CollectionView({ list }: { list: LibraryName }) {
   const summary = library.counts[list];
   const title = list === "owned" ? "Biblioteca" : "Deseados";
   const layout = list === "owned" ? await libraryLayout() : "list";
+  const filtered = activeFilterCount(query) > 0;
+  const shownCopies = library.data.reduce((sum, entry) => sum + entry.quantity, 0);
+  const hasCards = summary.cards > 0;
 
   return (
     <div className="flex flex-col gap-4">
@@ -37,7 +49,7 @@ export async function CollectionView({ list }: { list: LibraryName }) {
             {title}
           </h1>
         </div>
-        {list === "owned" && library.data.length > 0 ? <LibraryViewToggle view={layout} /> : null}
+        {list === "owned" && hasCards ? <LibraryViewToggle view={layout} /> : null}
       </div>
       <div>
         <p className="text-sm text-stone-700">{collectionLabel(summary.cards, summary.copies)}</p>
@@ -48,7 +60,22 @@ export async function CollectionView({ list }: { list: LibraryName }) {
           </p>
         ) : null}
       </div>
-      {layout === "album" ? (
+      <Filters sets={library.sets} facets={library.facets} query={query} list={list} />
+      {filtered ? (
+        <p className="text-sm text-stone-700">
+          {collectionLabel(library.data.length, shownCopies)}
+          {query.q ? ` para “${query.q}”` : ""}
+        </p>
+      ) : null}
+      {library.data.length === 0 ? (
+        filtered ? (
+          <p className="rounded-2xl bg-white px-4 py-10 text-center text-sm text-stone-600 ring-1 ring-stone-200">
+            Ninguna carta coincide con estos filtros.
+          </p>
+        ) : (
+          <LibraryList entries={library.data} list={list} returnTo={returnTo} />
+        )
+      ) : layout === "album" ? (
         <LibraryAlbum entries={library.data} returnTo={returnTo} />
       ) : (
         <LibraryList entries={library.data} list={list} returnTo={returnTo} />

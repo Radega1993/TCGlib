@@ -4,16 +4,27 @@ import { redirect } from "next/navigation";
 import { DeckImport } from "@/components/deck-import";
 import { createDeck } from "@/lib/deck-actions";
 import { formatName, legalityTitle } from "@/lib/deck-copy";
-import { getDecks } from "@/lib/deck";
+import { getDecks, getSuggestions } from "@/lib/deck";
 import { getCurrentUser } from "@/lib/session";
+import { SuggestedDeckList } from "@/components/suggested-deck-list";
+import { parseSuggestionQuery } from "@/lib/suggestion-query";
 
-export async function DeckIndex() {
+export async function DeckIndex({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const user = await getCurrentUser();
   if (!user) redirect("/entrar?return=/mazos");
+  const suggestionQuery = parseSuggestionQuery(await searchParams);
 
   let decks: Awaited<ReturnType<typeof getDecks>>;
+  let suggestions: Awaited<ReturnType<typeof getSuggestions>> = [];
   try {
-    decks = await getDecks();
+    [decks, suggestions] = await Promise.all([
+      getDecks(),
+      getSuggestions().then((items) => items ?? []),
+    ]);
   } catch {
     return <DeckError />;
   }
@@ -36,6 +47,7 @@ export async function DeckIndex() {
           </button>
         </form>
       </div>
+      <h2 className="text-sm font-semibold text-stone-900">Tus mazos</h2>
       {decks.length === 0 ? (
         <div className="rounded-2xl bg-white px-4 py-10 text-center ring-1 ring-stone-200">
           <p className="text-sm text-stone-700">Todavía no tienes mazos.</p>
@@ -79,6 +91,7 @@ export async function DeckIndex() {
           ))}
         </ul>
       )}
+      <SuggestedDeckList decks={suggestions ?? []} query={suggestionQuery} />
     </div>
   );
 }

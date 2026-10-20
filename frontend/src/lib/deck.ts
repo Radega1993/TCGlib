@@ -1,9 +1,23 @@
 import { serverApiUrl } from "@/lib/api";
 import { readSessionToken } from "@/lib/session";
-import { DeckDetail, DeckListItem, PublicDeck } from "@/lib/types";
+import {
+  DeckDetail,
+  DeckListItem,
+  PublicDeck,
+  SuggestedDeckDetail,
+  SuggestedDeckMatch,
+} from "@/lib/types";
 
 export async function getDecks() {
   return authed<DeckListItem[]>("/api/me/decks");
+}
+
+export async function getSuggestions() {
+  return authed<SuggestedDeckMatch[]>("/api/me/decks/suggestions");
+}
+
+export async function getSuggestion(slug: string) {
+  return authed<SuggestedDeckDetail>(`/api/me/decks/suggestions/${encodeURIComponent(slug)}`);
 }
 
 export async function getDeck(id: string) {

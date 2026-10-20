@@ -23,7 +23,7 @@ export class LibraryController {
 
   @Get()
   list(@CurrentUser() user: PublicUser, @Query() query: ListLibraryQueryDto) {
-    return this.library.list(user.id, query.list ?? 'owned');
+    return this.library.list(user.id, query);
   }
 
   @Get('card/:externalId')

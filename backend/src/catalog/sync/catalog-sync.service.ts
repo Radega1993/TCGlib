@@ -1,4 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { AnyBulkWriteOperation, Model } from 'mongoose';
 import {
@@ -19,6 +25,10 @@ export const ONE_PIECE_SLUG = 'one-piece';
 const PAGE_SIZE = 100;
 const PAGE_DELAY_MS = 150;
 
+export const SYNC_GAMES = [
+  { slug: ONE_PIECE_SLUG, name: 'One Piece' },
+] as const;
+
 export interface SyncOnePieceResult {
   tcgSlug: typeof ONE_PIECE_SLUG;
   sets: number;
@@ -31,8 +41,9 @@ export interface SyncOnePieceResult {
 }
 
 @Injectable()
-export class CatalogSyncService {
+export class CatalogSyncService implements OnModuleInit {
   private readonly logger = new Logger(CatalogSyncService.name);
+  private readonly jobs = new Set<string>();
 
   constructor(
     private readonly apitcg: ApitcgClient,
@@ -41,6 +52,42 @@ export class CatalogSyncService {
     @InjectModel(Product.name) private readonly productModel: Model<Product>,
     @InjectModel(SyncRun.name) private readonly syncRunModel: Model<SyncRun>,
   ) {}
+
+  async onModuleInit() {
+    await this.syncRunModel.updateMany(
+      { status: 'running' },
+      {
+        $set: {
+          status: 'failed',
+          finishedAt: new Date(),
+          error: 'La actualización se interrumpió al reiniciar.',
+        },
+      },
+    );
+  }
+
+  start(slug: string) {
+    const game = SYNC_GAMES.find((item) => item.slug === slug);
+    if (!game) {
+      throw new NotFoundException('Ese juego no se puede actualizar.');
+    }
+    if (this.jobs.has(slug)) {
+      throw new ConflictException(
+        'Ya hay una actualización de este juego en curso.',
+      );
+    }
+    this.jobs.add(slug);
+    void this.syncOnePiece()
+      .catch((error: unknown) => {
+        this.logger.error(
+          error instanceof Error ? error.message : String(error),
+        );
+      })
+      .finally(() => {
+        this.jobs.delete(slug);
+      });
+    return { slug: game.slug, name: game.name, status: 'running' as const };
+  }
 
   async latest(tcgSlug = ONE_PIECE_SLUG) {
     const data = await this.syncRunModel

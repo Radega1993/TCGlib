@@ -31,6 +31,8 @@ import {
 import { CreateDeckDto, SaveDeckDto } from './dto/deck.dto';
 import { assembleOpsim, OpsimError, parseOpsim } from './opsim';
 import { LibraryService } from './library.service';
+import { isCommunityList } from './community-decks';
+import { SuggestedDecksService } from './suggested-decks.service';
 import { Deck, DeckSource } from './schemas/deck.schema';
 import { LibraryEntry, LibraryList } from './schemas/library-entry.schema';
 
@@ -67,6 +69,7 @@ export class DeckService {
     @InjectModel(User.name) private readonly users: Model<User>,
     private readonly products: ProductsService,
     private readonly library: LibraryService,
+    private readonly suggested: SuggestedDecksService,
   ) {}
 
   async list(userId: string) {
@@ -103,6 +106,150 @@ export class DeckService {
         },
       };
     });
+  }
+
+  async suggestions(userId: string) {
+    const owner = new Types.ObjectId(userId);
+    const [catalog, owned, saved] = await Promise.all([
+      this.suggested.forMatching(),
+      this.quantitiesByCode(userId, 'owned'),
+      this.decks
+        .find({ userId: owner, sourceRef: { $regex: '^dotgg:' } })
+        .select('sourceRef')
+        .lean(),
+    ]);
+    const savedBySlug = new Map(
+      saved.flatMap((deck) => {
+        const slug = deck.sourceRef?.slice('dotgg:'.length);
+        return slug ? [[slug, deck._id.toString()] as const] : [];
+      }),
+    );
+    const groups = await this.groupsFor(
+      catalog.map((deck) => ({ leaderCode: deck.leaderCode, lines: [] })),
+    );
+    return catalog
+      .filter((deck) => isCommunityList(deck))
+      .map((deck) => {
+        const availability = checkAvailability(
+          [{ code: deck.leaderCode, quantity: 1 }, ...deck.lines],
+          owned,
+        );
+        const leader = canonical(groups.get(deck.leaderCode));
+        return {
+          slug: deck.slug,
+          name: deck.name,
+          author: deck.author,
+          leader: leader ? cardView(leader) : null,
+          missingCopies: availability.missingCopies,
+          available: availability.available,
+          listSize: availability.listSize,
+          deckId: savedBySlug.get(deck.slug) ?? null,
+          views: deck.views,
+        };
+      })
+      .sort(
+        (left, right) =>
+          left.missingCopies - right.missingCopies ||
+          right.available - left.available ||
+          right.views - left.views,
+      )
+      .map(({ views: _views, ...deck }) => deck);
+  }
+
+  async suggestion(userId: string, slug: string) {
+    const suggested = await this.requireSuggestion(slug);
+    const owned = await this.quantitiesByCode(userId, 'owned');
+    const groups = await this.groupsFor([suggested]);
+    const saved = await this.decks
+      .findOne({
+        userId: new Types.ObjectId(userId),
+        sourceRef: `dotgg:${slug}`,
+      })
+      .select('_id')
+      .lean();
+    const rows = [
+      { code: suggested.leaderCode, quantity: 1, leader: true },
+      ...suggested.lines.map((line) => ({
+        code: line.code,
+        quantity: line.quantity,
+        leader: false,
+      })),
+    ].map((line) => {
+      const card = canonical(groups.get(line.code));
+      const count = owned.get(line.code) ?? 0;
+      return {
+        ...(card
+          ? cardView(card)
+          : {
+              externalId: null,
+              code: line.code,
+              name: line.code,
+              cardType: null,
+              color: null,
+              cost: null,
+              image: null,
+            }),
+        needed: line.quantity,
+        owned: count,
+        missing: Math.max(0, line.quantity - count),
+        leader: line.leader,
+      };
+    });
+    const availability = checkAvailability(
+      rows.map((line) => ({ code: line.code, quantity: line.needed })),
+      owned,
+    );
+    const leader = rows.find((line) => line.leader);
+    return {
+      slug: suggested.slug,
+      name: suggested.name,
+      author: suggested.author,
+      leader: leader
+        ? {
+            externalId: leader.externalId,
+            code: leader.code,
+            name: leader.name,
+            cardType: leader.cardType,
+            color: leader.color,
+            cost: leader.cost,
+            image: leader.image,
+          }
+        : null,
+      missingCopies: availability.missingCopies,
+      available: availability.available,
+      listSize: availability.listSize,
+      deckId: saved?._id.toString() ?? null,
+      lines: rows,
+    };
+  }
+
+  async adoptSuggestion(userId: string, slug: string) {
+    if (!/^[a-z0-9-]{1,80}$/.test(slug)) {
+      throw new BadRequestException('Ese mazo no está en la lista.');
+    }
+    const sourceRef = `dotgg:${slug}`;
+    const existing = await this.decks.findOne({
+      userId: new Types.ObjectId(userId),
+      sourceRef,
+    });
+    if (existing) return this.present(userId, existing.toObject());
+
+    const suggested = await this.suggested.findBySlug(slug);
+    if (!suggested) {
+      throw new NotFoundException('Ese mazo no está en la lista.');
+    }
+    const deck = await this.decks.create({
+      userId: new Types.ObjectId(userId),
+      name: suggested.name,
+      format: 'extra',
+      leaderCode: suggested.leaderCode,
+      lines: suggested.lines,
+      source: 'imported',
+      sourceRef,
+      rulesId: currentRules()?.id ?? '',
+      shareEnabled: false,
+    });
+    return this.present(userId, deck.toObject());
   }
 
   async get(userId: string, id: string) {
@@ -232,33 +379,19 @@ export class DeckService {
 
   async addMissing(userId: string, id: string) {
     const deck = await this.requireDeck(userId, id);
-    const owned = await this.quantitiesByCode(userId, 'owned');
-    const wanted = await this.quantitiesByCode(userId, 'wanted');
     const groups = await this.groupsFor([deck.toObject()]);
-    const adds = wishlistAdds(
-      deck.lines.map((line) => ({
-        code: line.code,
-        needed: line.quantity,
-        owned: owned.get(line.code) ?? 0,
-      })),
-      wanted,
+    const copies = await this.addToWishlist(userId, deck.lines, groups);
+    return { copies };
+  }
+
+  async wishSuggestion(userId: string, slug: string) {
+    const suggested = await this.requireSuggestion(slug);
+    const groups = await this.groupsFor([suggested]);
+    const copies = await this.addToWishlist(
+      userId,
+      [{ code: suggested.leaderCode, quantity: 1 }, ...suggested.lines],
+      groups,
     );
-    let copies = 0;
-    for (const add of adds) {
-      const printings = groups.get(add.code);
-      if (!printings?.length) continue;
-      const base = pickCanonical(printings);
-      const current = await this.productWanted(userId, base.externalId);
-      const quantity = Math.min(99, current + add.extra);
-      if (quantity <= current) continue;
-      await this.library.setQuantity(
-        userId,
-        base.externalId,
-        'wanted',
-        quantity,
-      );
-      copies += quantity - current;
-    }
     return { copies };
   }
 
@@ -319,6 +452,51 @@ export class DeckService {
       legality: view.legality,
       summary: view.summary,
     };
+  }
+
+  private async requireSuggestion(slug: string) {
+    if (!/^[a-z0-9-]{1,80}$/.test(slug)) {
+      throw new BadRequestException('Ese mazo no está en la lista.');
+    }
+    const suggested = await this.suggested.findBySlug(slug);
+    if (!suggested || !isCommunityList(suggested)) {
+      throw new NotFoundException('Ese mazo no está en la lista.');
+    }
+    return suggested;
+  }
+
+  private async addToWishlist(
+    userId: string,
+    lines: { code: string; quantity: number }[],
+    groups: Map<string, Printing[]>,
+  ) {
+    const owned = await this.quantitiesByCode(userId, 'owned');
+    const wanted = await this.quantitiesByCode(userId, 'wanted');
+    const adds = wishlistAdds(
+      lines.map((line) => ({
+        code: line.code,
+        needed: line.quantity,
+        owned: owned.get(line.code) ?? 0,
+      })),
+      wanted,
+    );
+    let copies = 0;
+    for (const add of adds) {
+      const printings = groups.get(add.code);
+      if (!printings?.length) continue;
+      const base = pickCanonical(printings);
+      const current = await this.productWanted(userId, base.externalId);
+      const quantity = Math.min(99, current + add.extra);
+      if (quantity <= current) continue;
+      await this.library.setQuantity(
+        userId,
+        base.externalId,
+        'wanted',
+        quantity,
+      );
+      copies += quantity - current;
+    }
+    return copies;
   }
 
   private async present(userId: string, deck: DeckRecord, withLibrary = true) {

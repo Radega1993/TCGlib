@@ -44,6 +44,30 @@ export class DeckController {
       .then((data) => ({ data }));
   }
 
+  @Get('suggestions')
+  suggestions(@CurrentUser() user: PublicUser) {
+    return this.decks.suggestions(user.id).then((data) => ({ data }));
+  }
+
+  @Get('suggestions/:slug')
+  suggestion(@CurrentUser() user: PublicUser, @Param('slug') slug: string) {
+    return this.decks.suggestion(user.id, slug).then((data) => ({ data }));
+  }
+
+  @Post('suggestions/:slug/wishlist')
+  wish(@CurrentUser() user: PublicUser, @Param('slug') slug: string) {
+    return this.decks
+      .wishSuggestion(user.id, slug)
+      .then((data) => ({ data }));
+  }
+
+  @Post('suggestions/:slug')
+  adopt(@CurrentUser() user: PublicUser, @Param('slug') slug: string) {
+    return this.decks
+      .adoptSuggestion(user.id, slug)
+      .then((data) => ({ data }));
+  }
+
   @Get('search')
   search(@CurrentUser() user: PublicUser, @Query() query: SearchDeckQueryDto) {
     return this.decks

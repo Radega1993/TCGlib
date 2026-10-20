@@ -18,6 +18,30 @@ export type DeckDraft = {
   lines: { code: string; quantity: number }[];
 };
 
+export async function wishSuggestedDeck(slug: string) {
+  if (!/^[a-z0-9-]{1,80}$/.test(slug)) return { ok: false as const };
+  const result = await request<{ copies: number }>(
+    `/api/me/decks/suggestions/${slug}/wishlist`,
+    "POST",
+  );
+  if (result.ok) {
+    revalidatePath("/deseados");
+    revalidatePath(`/mazos/sugeridos/${slug}`);
+  }
+  return result;
+}
+
+export async function adoptSuggestedDeck(slug: string) {
+  if (!/^[a-z0-9-]{1,80}$/.test(slug)) redirect("/mazos");
+  const result = await request<DeckDetail>(`/api/me/decks/suggestions/${slug}`, "POST");
+  if (!result.ok) {
+    if (result.error === "auth") redirect("/entrar?return=/mazos");
+    return;
+  }
+  revalidatePath("/mazos");
+  redirect(`/mazos/${result.data.id}`);
+}
+
 export async function createDeck() {
   const result = await request<DeckDetail>("/api/me/decks", "POST", {
     name: "Mazo nuevo",

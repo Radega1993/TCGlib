@@ -19,7 +19,25 @@ export async function deleteAdminUser(id: string) {
   return adminWrite(`/api/admin/users/${encodeURIComponent(id)}`, "DELETE");
 }
 
-async function adminWrite(path: string, method: "PUT" | "DELETE", body?: unknown) {
+export async function syncCatalog(slug: string) {
+  if (!/^[a-z0-9-]{1,40}$/.test(slug)) {
+    return { ok: false as const, error: "Ese juego no se puede actualizar." };
+  }
+  return adminWrite(`/api/admin/sync/${slug}`, "POST");
+}
+
+export async function refreshSuggestedDecks() {
+  return adminWrite<{ added: number; kept: number; total: number }>(
+    "/api/admin/suggested-decks",
+    "POST",
+  );
+}
+
+async function adminWrite<T = undefined>(
+  path: string,
+  method: "PUT" | "DELETE" | "POST",
+  body?: unknown,
+) {
   const token = await readSessionToken();
   if (!token) return { ok: false as const, error: "La sesión no es válida" };
   const response = await fetch(`${serverApiUrl()}${path}`, {
@@ -35,9 +53,10 @@ async function adminWrite(path: string, method: "PUT" | "DELETE", body?: unknown
   if (!response.ok) {
     return { ok: false as const, error: await readError(response) };
   }
+  const payload = (await response.json().catch(() => null)) as { data?: T } | null;
   revalidatePath("/admin", "layout");
   revalidatePath("/", "layout");
-  return { ok: true as const };
+  return { ok: true as const, data: payload?.data };
 }
 
 async function readError(response: Response) {

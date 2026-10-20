@@ -4,6 +4,8 @@ import { Model, Types } from 'mongoose';
 import { ProductFilterInput } from '../catalog/products/product-filter';
 import { ProductsService } from '../catalog/products/products.service';
 import { Product } from '../catalog/schemas/product.schema';
+import { ListProductsQueryDto } from '../catalog/products/dto/list-products.query';
+import { ListLibraryQueryDto } from './dto/list-library.query';
 import {
   ShareCollectionQueryDto,
   ShareTab,
@@ -33,36 +35,22 @@ export class LibraryService {
     private readonly products: ProductsService,
   ) {}
 
-  async list(userId: string, list: LibraryList) {
+  async list(userId: string, query: ListLibraryQueryDto) {
+    const list = query.list ?? 'owned';
     const owner = new Types.ObjectId(userId);
-    const [entries, counts] = await Promise.all([
-      this.entries.find({ userId: owner, list }).lean(),
+    const filter = toCardFilter(query);
+    const [rows, counts] = await Promise.all([
+      this.quantityRows(owner, list),
       this.countLists(owner),
     ]);
-    const cards = await this.products.findCardsByExternalIds(
-      entries.map((entry) => entry.productExternalId),
-    );
-    const byId = new Map(cards.map((card) => [card.externalId, card]));
+    const ids = rows.map((row) => row.productExternalId);
+    const [facets, sets, page] = await Promise.all([
+      this.products.facetsForExternalIds(ids),
+      this.products.setsForExternalIds(ids),
+      this.pageRows(rows, filter, 1, Math.max(ids.length, 1)),
+    ]);
 
-    const data = entries
-      .flatMap((entry) => {
-        const product = byId.get(entry.productExternalId);
-        if (!product) return [];
-        return [
-          {
-            quantity: entry.quantity,
-            forTrade: entry.list === 'owned' ? (entry.forTrade ?? 0) : 0,
-            product: toLibraryProduct(product),
-          },
-        ];
-      })
-      .sort(
-        (a, b) =>
-          a.product.name.localeCompare(b.product.name, 'es') ||
-          (a.product.code ?? '').localeCompare(b.product.code ?? '', 'es'),
-      );
-
-    return { data, list, counts };
+    return { data: page.entries, list, counts, facets, sets };
   }
 
   async publicBoard(
@@ -247,6 +235,7 @@ export class LibraryService {
     rows: QuantityRow[],
     filter: ProductFilterInput,
     page: number,
+    limit = PUBLIC_PAGE_SIZE,
   ) {
     const quantities = new Map(
       rows.map((row) => [row.productExternalId, row.quantity]),

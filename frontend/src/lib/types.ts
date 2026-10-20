@@ -203,10 +203,21 @@ export type AdminOverview = {
   owned: AdminCardRank[];
   searched: { term: string; count: number }[];
   viewed: AdminViewRank[];
+  games: AdminGame[];
+  suggestedDecks: number;
 };
+
+export type AdminGame = {
+  slug: string;
+  name: string;
+  sync: AdminOverview["sync"];
+};
+
+export type ShareLayout = "album" | "list";
 
 export type ShareQuery = CatalogQuery & {
   tab?: ShareTab;
+  view?: ShareLayout;
 };
 
 export type LibraryList = "owned" | "wanted";
@@ -387,6 +398,21 @@ export type DeckListItem = {
 };
 
 export type DeckSearchCard = DeckCard & { owned: number };
+
+export type SuggestedDeckMatch = {
+  slug: string;
+  name: string;
+  author: string;
+  leader: DeckCard | null;
+  missingCopies: number;
+  available: number;
+  listSize: number;
+  deckId: string | null;
+};
+
+export type SuggestedDeckDetail = SuggestedDeckMatch & {
+  lines: (DeckLine & { leader: boolean })[];
+};
 
 export type PublicDeck = {
   owner: string;

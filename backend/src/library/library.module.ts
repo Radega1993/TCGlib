@@ -16,6 +16,11 @@ import {
   LibraryEntry,
   LibraryEntrySchema,
 } from './schemas/library-entry.schema';
+import {
+  SuggestedDeck,
+  SuggestedDeckSchema,
+} from './schemas/suggested-deck.schema';
+import { SuggestedDecksService } from './suggested-decks.service';
 
 @Module({
   imports: [
@@ -24,6 +29,7 @@ import {
     MongooseModule.forFeature([
       { name: LibraryEntry.name, schema: LibraryEntrySchema },
       { name: Deck.name, schema: DeckSchema },
+      { name: SuggestedDeck.name, schema: SuggestedDeckSchema },
       { name: User.name, schema: UserSchema },
     ]),
   ],
@@ -34,6 +40,7 @@ import {
     DeckController,
     DeckPublicController,
   ],
-  providers: [LibraryService, CollectionService, DeckService],
+  providers: [LibraryService, CollectionService, DeckService, SuggestedDecksService],
+  exports: [SuggestedDecksService],
 })
 export class LibraryModule {}
