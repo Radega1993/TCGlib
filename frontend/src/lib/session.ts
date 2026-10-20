@@ -51,10 +51,36 @@ export async function getLibrary(list: LibraryList, query?: CatalogQuery) {
   if (!response.ok) throw new Error("library");
   return (await response.json()) as {
     data: LibraryEntry[];
+    total: number;
+    copies: number;
+    page: number;
+    limit: number;
     list: LibraryList;
     counts: LibraryCounts;
     facets: CatalogFacets;
     sets: CardSet[];
+  };
+}
+
+export async function getTrades(page = 1) {
+  const token = await readSessionToken();
+  if (!token) return null;
+  const params = new URLSearchParams();
+  params.set("list", "trade");
+  if (page > 1) params.set("page", String(page));
+  const response = await fetch(`${serverApiUrl()}/api/me/library?${params}`, {
+    headers: { authorization: `Bearer ${token}` },
+    cache: "no-store",
+  }).catch(() => null);
+  if (!response) throw new Error("library");
+  if (response.status === 401) return null;
+  if (!response.ok) throw new Error("library");
+  return (await response.json()) as {
+    data: (LibraryEntry & { wanted: number })[];
+    total: number;
+    page: number;
+    limit: number;
+    counts: LibraryCounts;
   };
 }
 

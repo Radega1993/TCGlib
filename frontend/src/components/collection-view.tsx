@@ -4,6 +4,7 @@ import { Filters } from "@/components/filters";
 import { LibraryAlbum } from "@/components/library-album";
 import { LibraryList } from "@/components/library-list";
 import { LibraryLayout, LibraryViewToggle } from "@/components/library-view-toggle";
+import { Pagination } from "@/components/pagination";
 import { activeFilterCount, libraryHref, parseCatalogQuery } from "@/lib/catalog-query";
 import { collectionLabel, formatCount } from "@/lib/format";
 import { getCurrentUser, getLibrary } from "@/lib/session";
@@ -37,7 +38,6 @@ export async function CollectionView({
   const title = list === "owned" ? "Biblioteca" : "Deseados";
   const layout = list === "owned" ? await libraryLayout() : "list";
   const filtered = activeFilterCount(query) > 0;
-  const shownCopies = library.data.reduce((sum, entry) => sum + entry.quantity, 0);
   const hasCards = summary.cards > 0;
 
   return (
@@ -63,7 +63,7 @@ export async function CollectionView({
       <Filters sets={library.sets} facets={library.facets} query={query} list={list} />
       {filtered ? (
         <p className="text-sm text-stone-700">
-          {collectionLabel(library.data.length, shownCopies)}
+          {collectionLabel(library.total, library.copies)}
           {query.q ? ` para “${query.q}”` : ""}
         </p>
       ) : null}
@@ -80,6 +80,15 @@ export async function CollectionView({
       ) : (
         <LibraryList entries={library.data} list={list} returnTo={returnTo} />
       )}
+      {library.total > library.limit ? (
+        <Pagination
+          page={library.page}
+          total={library.total}
+          limit={library.limit}
+          hrefFor={(page) => libraryHref(list, query, page)}
+          label={`Paginación de ${title.toLowerCase()}`}
+        />
+      ) : null}
     </div>
   );
 }

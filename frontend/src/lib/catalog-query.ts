@@ -59,7 +59,7 @@ export function libraryHref(list: LibraryList, query: CatalogQuery, page = query
 }
 
 export function libraryApiQuery(list: LibraryList, query?: CatalogQuery) {
-  const params = query ? filterParams({ ...query, page: 1 }, 1) : new URLSearchParams();
+  const params = query ? filterParams(query, query.page) : new URLSearchParams();
   params.set("list", list);
   return params;
 }

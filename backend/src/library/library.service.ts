@@ -36,6 +36,7 @@ export class LibraryService {
   ) {}
 
   async list(userId: string, query: ListLibraryQueryDto) {
+    if (query.list === 'trade') return this.listTrades(userId, query);
     const list = query.list ?? 'owned';
     const owner = new Types.ObjectId(userId);
     const filter = toCardFilter(query);
@@ -47,10 +48,65 @@ export class LibraryService {
     const [facets, sets, page] = await Promise.all([
       this.products.facetsForExternalIds(ids),
       this.products.setsForExternalIds(ids),
-      this.pageRows(rows, filter, 1, Math.max(ids.length, 1)),
+      this.pageRows(rows, filter, query.page ?? 1),
     ]);
 
-    return { data: page.entries, list, counts, facets, sets };
+    return {
+      data: page.entries,
+      total: page.total,
+      copies: page.copies,
+      page: page.page,
+      limit: page.limit,
+      list,
+      counts,
+      facets,
+      sets,
+    };
+  }
+
+  private async listTrades(userId: string, query: ListLibraryQueryDto) {
+    const owner = new Types.ObjectId(userId);
+    const filter = toCardFilter(query);
+    const [ownedRows, wantedRows, counts] = await Promise.all([
+      this.quantityRows(owner, 'owned'),
+      this.quantityRows(owner, 'wanted'),
+      this.countLists(owner),
+    ]);
+    const tradeRows = ownedRows.flatMap((row) => {
+      const available = availableCopies(row.quantity, row.forTrade ?? 0);
+      if (available <= 0) return [];
+      return [
+        {
+          productExternalId: row.productExternalId,
+          quantity: row.quantity,
+          forTrade: available,
+        },
+      ];
+    });
+    const ids = tradeRows.map((row) => row.productExternalId);
+    const wanted = new Map(
+      wantedRows.map((row) => [row.productExternalId, row.quantity]),
+    );
+    const [facets, sets, page] = await Promise.all([
+      this.products.facetsForExternalIds(ids),
+      this.products.setsForExternalIds(ids),
+      this.pageRows(tradeRows, filter, query.page ?? 1),
+    ]);
+
+    return {
+      data: page.entries.map((entry) => ({
+        ...entry,
+        wanted: wanted.get(entry.product.externalId) ?? 0,
+      })),
+      total: page.total,
+      copies: counts.trades.copies,
+      page: page.page,
+      limit: page.limit,
+      list: 'trade' as const,
+      counts,
+      facets,
+      sets,
+    };
   }
 
   async publicBoard(
@@ -247,7 +303,7 @@ export class LibraryService {
       [...quantities.keys()],
       filter,
       page,
-      PUBLIC_PAGE_SIZE,
+      limit,
     );
     const matched = new Set(result.matchedIds);
     let copies = 0;
