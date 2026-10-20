@@ -2,26 +2,35 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { setShareEnabled } from "@/lib/library-actions";
 import { setAlias } from "@/lib/profile-actions";
 
 export function AliasForm({
   alias,
+  shareEnabled,
   id = "public-alias",
   showLabel = false,
 }: {
   alias: string;
+  shareEnabled: boolean;
   id?: string;
   showLabel?: boolean;
 }) {
   const router = useRouter();
   const [value, setValue] = useState(alias);
   const [seen, setSeen] = useState(alias);
+  const [enabled, setEnabled] = useState(shareEnabled);
+  const [seenShare, setSeenShare] = useState(shareEnabled);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   if (alias !== seen) {
     setSeen(alias);
     setValue(alias);
+  }
+  if (shareEnabled !== seenShare) {
+    setSeenShare(shareEnabled);
+    setEnabled(shareEnabled);
   }
 
   return (
@@ -57,6 +66,36 @@ export function AliasForm({
           onChange={(event) => setValue(event.target.value)}
           className="h-11 min-w-0 flex-1 rounded-xl bg-white px-3 text-sm text-stone-950 ring-1 ring-stone-300 outline-none md:w-44 md:flex-none lg:w-52"
         />
+        <button
+          type="button"
+          role="switch"
+          aria-checked={enabled}
+          disabled={pending}
+          onClick={() => {
+            const next = !enabled;
+            setError(null);
+            setEnabled(next);
+            startTransition(async () => {
+              const result = await setShareEnabled(next);
+              if (!result.ok) {
+                setEnabled(!next);
+                setError("No se pudo cambiar la visibilidad");
+                return;
+              }
+              router.refresh();
+            });
+          }}
+          className="inline-flex h-11 shrink-0 items-center gap-2 rounded-xl bg-white px-2.5 text-sm font-medium text-stone-900 ring-1 ring-stone-300 disabled:text-stone-400"
+        >
+          {enabled ? "Público" : "Privado"}
+          <span
+            className={`relative h-5 w-9 rounded-full ${enabled ? "bg-stone-900" : "bg-stone-300"}`}
+          >
+            <span
+              className={`absolute top-0.5 size-4 rounded-full bg-white ${enabled ? "left-4" : "left-0.5"}`}
+            />
+          </span>
+        </button>
         <button
           type="submit"
           disabled={pending || value.trim() === alias}

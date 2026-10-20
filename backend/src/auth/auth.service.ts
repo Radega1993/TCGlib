@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, OnModuleInit, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -32,7 +32,7 @@ type GoogleProfile = {
 };
 
 @Injectable()
-export class AuthService {
+export class AuthService implements OnModuleInit {
   constructor(
     private readonly config: ConfigService<EnvConfig, true>,
     @InjectModel(User.name) private readonly users: Model<User>,
@@ -41,6 +41,31 @@ export class AuthService {
     @InjectModel(ActivityDay.name)
     private readonly activityDays: Model<ActivityDay>,
   ) {}
+
+  async onModuleInit() {
+    const flags = this.users.db.collection<{ key: string; at: Date }>('app_flags');
+    const key = 'players-public-default';
+    if (await flags.findOne({ key })) return;
+
+    const pending = await this.users.find({
+      blocked: { $ne: true },
+      $or: [
+        { shareEnabled: { $ne: true } },
+        { publicSlug: { $in: [null, ''] } },
+        { publicSlug: { $exists: false } },
+      ],
+    });
+    for (const user of pending) {
+      user.shareEnabled = true;
+      if (!user.publicSlug) user.publicSlug = await this.createUniqueSlug();
+      await user.save();
+    }
+    await flags.updateOne(
+      { key },
+      { $setOnInsert: { key, at: new Date() } },
+      { upsert: true },
+    );
+  }
 
   isGoogleConfigured() {
     return Boolean(this.clientId && this.clientSecret);

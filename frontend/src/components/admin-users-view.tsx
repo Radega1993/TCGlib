@@ -9,7 +9,8 @@ const STATUSES = [
   { value: "", label: "Todos" },
   { value: "active", label: "Activos 7 días" },
   { value: "blocked", label: "Bloqueados" },
-  { value: "sharing", label: "Con enlace" },
+  { value: "sharing", label: "Públicos" },
+  { value: "private", label: "Privados" },
 ] as const;
 
 const SORTS = [

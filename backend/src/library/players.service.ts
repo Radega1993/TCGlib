@@ -1,54 +1,69 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model, PipelineStage } from 'mongoose';
 import { publicPlayerName } from '../auth/alias';
 import { User } from '../auth/schemas/user.schema';
 import { escapeRegex } from '../catalog/products/product-filter';
 import { SearchPlayersQueryDto } from './dto/search-players.query';
-import { LibraryEntry } from './schemas/library-entry.schema';
 
 const PAGE_SIZE = 24;
 
+type PlayerRow = {
+  name: string;
+  alias?: string;
+  picture?: string;
+  publicSlug?: string;
+  owned: number;
+  trades: number;
+  wanted: number;
+};
+
 @Injectable()
 export class PlayersService {
-  constructor(
-    @InjectModel(User.name) private readonly users: Model<User>,
-    @InjectModel(LibraryEntry.name) private readonly entries: Model<LibraryEntry>,
-  ) {}
+  constructor(@InjectModel(User.name) private readonly users: Model<User>) {}
 
   async search(query: SearchPlayersQueryDto) {
-    const limit = PAGE_SIZE;
+    const limit = query.limit ?? PAGE_SIZE;
     const requested = query.page ?? 1;
-    const filter = publicFilter(query.q);
-    const total = await this.users.countDocuments(filter);
+    const term = query.q?.trim().slice(0, 40);
+    const match = publicFilter(term);
+    const total = await this.count(match, !term);
     const pages = Math.max(1, Math.ceil(total / limit));
     const page = Math.min(requested, pages);
-    const rows = await this.users
-      .find(filter)
-      .select('name alias picture publicSlug')
-      .collation({ locale: 'es' })
-      .sort({ alias: 1, name: 1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean();
-    const counts = await this.listCounts(rows.map((user) => user._id));
+    const rows = total
+      ? await this.users
+          .aggregate<PlayerRow>([
+            { $match: match },
+            ...rankedStages(!term),
+            { $sort: { cards: -1, activeMs: -1, lastSeenAt: -1, name: 1 } },
+            { $skip: (page - 1) * limit },
+            { $limit: limit },
+            {
+              $project: {
+                name: 1,
+                alias: 1,
+                picture: 1,
+                publicSlug: 1,
+                owned: 1,
+                trades: 1,
+                wanted: 1,
+              },
+            },
+          ])
+          .collation({ locale: 'es' })
+      : [];
 
     return {
       data: rows.flatMap((user) => {
         if (!user.publicSlug) return [];
-        const lists = counts.get(user._id.toString()) ?? {
-          owned: 0,
-          trades: 0,
-          wanted: 0,
-        };
         return [
           {
             name: publicPlayerName(user),
             picture: user.picture,
             slug: user.publicSlug,
-            owned: lists.owned,
-            trades: lists.trades,
-            wanted: lists.wanted,
+            owned: user.owned,
+            trades: user.trades,
+            wanted: user.wanted,
           },
         ];
       }),
@@ -58,50 +73,88 @@ export class PlayersService {
     };
   }
 
-  private async listCounts(ids: Types.ObjectId[]) {
-    const counts = new Map<
-      string,
-      { owned: number; trades: number; wanted: number }
-    >();
-    if (ids.length === 0) return counts;
-    const rows = await this.entries.aggregate<{
-      _id: Types.ObjectId;
-      owned: number;
-      trades: number;
-      wanted: number;
-    }>([
-      { $match: { userId: { $in: ids } } },
-      {
-        $group: {
-          _id: '$userId',
-          owned: { $sum: { $cond: [{ $eq: ['$list', 'owned'] }, 1, 0] } },
-          wanted: { $sum: { $cond: [{ $eq: ['$list', 'wanted'] }, 1, 0] } },
-          trades: {
-            $sum: {
-              $cond: [
-                {
-                  $and: [
-                    { $eq: ['$list', 'owned'] },
-                    { $gt: [{ $ifNull: ['$forTrade', 0] }, 0] },
+  private async count(match: Record<string, unknown>, requireActivity: boolean) {
+    const [row] = await this.users.aggregate<{ n: number }>([
+      { $match: match },
+      ...rankedStages(requireActivity),
+      { $count: 'n' },
+    ]);
+    return row?.n ?? 0;
+  }
+}
+
+function rankedStages(requireActivity: boolean): PipelineStage[] {
+  const stages: PipelineStage[] = [
+    {
+      $lookup: {
+        from: 'library_entries',
+        let: { id: '$_id' },
+        pipeline: [
+          { $match: { $expr: { $eq: ['$userId', '$$id'] } } },
+          {
+            $group: {
+              _id: null,
+              owned: { $sum: { $cond: [{ $eq: ['$list', 'owned'] }, 1, 0] } },
+              wanted: { $sum: { $cond: [{ $eq: ['$list', 'wanted'] }, 1, 0] } },
+              trades: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $eq: ['$list', 'owned'] },
+                        { $gt: [{ $ifNull: ['$forTrade', 0] }, 0] },
+                      ],
+                    },
+                    1,
+                    0,
                   ],
                 },
-                1,
-                0,
-              ],
+              },
             },
           },
+        ],
+        as: 'lists',
+      },
+    },
+    {
+      $lookup: {
+        from: 'sessions',
+        let: { id: '$_id' },
+        pipeline: [
+          { $match: { $expr: { $eq: ['$userId', '$$id'] } } },
+          { $group: { _id: null, activeMs: { $sum: '$activeMs' } } },
+        ],
+        as: 'activity',
+      },
+    },
+    {
+      $addFields: {
+        owned: { $ifNull: [{ $first: '$lists.owned' }, 0] },
+        wanted: { $ifNull: [{ $first: '$lists.wanted' }, 0] },
+        trades: { $ifNull: [{ $first: '$lists.trades' }, 0] },
+        activeMs: { $ifNull: [{ $first: '$activity.activeMs' }, 0] },
+        cards: {
+          $add: [
+            { $ifNull: [{ $first: '$lists.owned' }, 0] },
+            { $ifNull: [{ $first: '$lists.wanted' }, 0] },
+            { $ifNull: [{ $first: '$lists.trades' }, 0] },
+          ],
         },
       },
-    ]);
-    for (const row of rows) {
-      counts.set(row._id.toString(), {
-        owned: row.owned,
-        trades: row.trades,
-        wanted: row.wanted,
-      });
-    }
-    return counts;
+    },
+  ];
+  if (requireActivity) {
+    stages.push({
+      $match: {
+        $or: [
+          { cards: { $gt: 0 } },
+          { activeMs: { $gt: 0 } },
+          { lastSeenAt: { $type: 'date' } },
+        ],
+      },
+    });
   }
+  return stages;
 }
 
 function publicFilter(raw: string | undefined) {

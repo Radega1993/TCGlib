@@ -82,7 +82,12 @@ function Chrome({
         {user ? (
           <div className="flex items-center gap-2 px-4 pb-3 md:hidden">
             <UserMark user={user} />
-            <AliasForm alias={user.alias ?? ""} id="public-alias-mobile" showLabel />
+            <AliasForm
+              alias={user.alias ?? ""}
+              shareEnabled={user.shareEnabled}
+              id="public-alias-mobile"
+              showLabel
+            />
           </div>
         ) : null}
       </header>
@@ -104,7 +109,12 @@ function AccountBar({
   return (
     <div className="flex min-w-0 items-center justify-end gap-2">
       <UserMark user={user} />
-      <AliasForm alias={user.alias ?? ""} id={inputId} showLabel={showLabel} />
+      <AliasForm
+        alias={user.alias ?? ""}
+        shareEnabled={user.shareEnabled}
+        id={inputId}
+        showLabel={showLabel}
+      />
       <LogoutButton />
     </div>
   );

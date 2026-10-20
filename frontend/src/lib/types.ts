@@ -148,6 +148,7 @@ export type AdminUser = {
   lastSeenAt?: string;
   owned: AdminListCount;
   wanted: AdminListCount;
+  trades: AdminListCount;
 };
 
 export type AdminCardRank = {
@@ -178,6 +179,7 @@ export type AdminOverview = {
     total: number;
     blocked: number;
     sharing: number;
+    private: number;
     activeToday: number;
     activeWeek: number;
     activeMonth: number;
@@ -186,7 +188,11 @@ export type AdminOverview = {
   };
   sessions: number;
   activity: { averageMs: number; users: number };
-  library: { owned: AdminListCount; wanted: AdminListCount };
+  library: {
+    owned: AdminListCount;
+    wanted: AdminListCount;
+    trades: AdminListCount;
+  };
   catalog: { sets: number; products: number; cards: number; sealed: number };
   sync: {
     status: "running" | "completed" | "failed";
@@ -204,7 +210,7 @@ export type AdminOverview = {
   searched: { term: string; count: number }[];
   viewed: AdminViewRank[];
   games: AdminGame[];
-  suggestedDecks: number;
+  suggestedDecks: { total: number; leaders: number; complete: number };
 };
 
 export type AdminGame = {

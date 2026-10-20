@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { deleteAdminUser, setUserBlocked, updateAdminUser } from "@/lib/admin-actions";
@@ -63,7 +64,7 @@ export function AdminUserCard({
             <p className="truncate text-sm font-medium text-stone-950">{shown}</p>
             {user.admin ? <Badge>Admin</Badge> : null}
             {user.blocked ? <Badge tone="danger">Bloqueado</Badge> : null}
-            {user.shareEnabled ? <Badge>Público</Badge> : null}
+            {user.shareEnabled ? <Badge>Público</Badge> : <Badge>Privado</Badge>}
           </div>
           <p className="truncate text-xs text-stone-500">{user.email}</p>
           {user.alias ? <p className="truncate text-xs text-stone-500">Google: {user.name}</p> : null}
@@ -74,7 +75,14 @@ export function AdminUserCard({
             Biblioteca {collectionLabel(user.owned.cards, user.owned.copies)}
             {" · "}
             Deseados {collectionLabel(user.wanted.cards, user.wanted.copies)}
+            {" · "}
+            Intercambio {collectionLabel(user.trades.cards, user.trades.copies)}
           </p>
+          {user.shareEnabled && user.publicSlug ? (
+            <Link href={`/u/${user.publicSlug}`} className="mt-1 inline-flex text-xs font-medium text-stone-700 underline">
+              Ver en Jugadores
+            </Link>
+          ) : null}
         </div>
       </div>
 
@@ -115,7 +123,7 @@ export function AdminUserCard({
               onClick={() => run(() => updateAdminUser(user.id, { shareEnabled: !user.shareEnabled }))}
               className="inline-flex h-11 items-center justify-center rounded-xl px-3 text-sm font-medium ring-1 ring-stone-300 disabled:text-stone-400"
             >
-              {user.shareEnabled ? "Ocultar enlace" : "Activar enlace"}
+              {user.shareEnabled ? "Pasar a privado" : "Hacer público"}
             </button>
             {mine ? (
               <p className="inline-flex h-11 items-center justify-center text-sm text-stone-500">

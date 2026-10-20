@@ -35,7 +35,7 @@ const PAGE_SIZE = 25;
 const RANK_LIMIT = 8;
 
 type ListCount = { cards: number; copies: number; users: number };
-type LibraryGroup = ListCount & { _id: 'owned' | 'wanted' };
+type LibraryGroup = ListCount & { _id: 'owned' | 'wanted' | 'trades' };
 
 @Injectable()
 export class AdminService {
@@ -66,6 +66,7 @@ export class AdminService {
       total,
       blocked,
       sharing,
+      privateProfiles,
       activeToday,
       activeWeek,
       activeMonth,
@@ -84,10 +85,12 @@ export class AdminService {
       searchRows,
       viewRows,
       suggestedDeckCount,
+      tradeRows,
     ] = await Promise.all([
       this.users.countDocuments(),
       this.users.countDocuments({ blocked: true }),
       this.users.countDocuments({ shareEnabled: true }),
+      this.users.countDocuments({ shareEnabled: { $ne: true } }),
       this.users.countDocuments({ lastSeenAt: { $gte: today } }),
       this.users.countDocuments({ lastSeenAt: { $gte: week } }),
       this.users.countDocuments({ lastSeenAt: { $gte: month } }),
@@ -154,7 +157,25 @@ export class AdminService {
         { $sort: { count: -1 } },
         { $limit: RANK_LIMIT },
       ]),
-      this.suggestedDecks.count(),
+      this.suggestedDecks.coverage(),
+      this.library.aggregate<LibraryGroup>([
+        { $match: { list: 'owned', forTrade: { $gt: 0 } } },
+        {
+          $group: {
+            _id: '$userId',
+            cards: { $sum: 1 },
+            copies: { $sum: '$forTrade' },
+          },
+        },
+        {
+          $group: {
+            _id: 'trades',
+            cards: { $sum: '$cards' },
+            copies: { $sum: '$copies' },
+            users: { $sum: 1 },
+          },
+        },
+      ]),
     ]);
 
     const [wanted, owned, viewed] = await Promise.all([
@@ -168,6 +189,7 @@ export class AdminService {
         total,
         blocked,
         sharing,
+        private: privateProfiles,
         activeToday,
         activeWeek,
         activeMonth,
@@ -179,6 +201,7 @@ export class AdminService {
       library: {
         owned: listSummary(libraryRows, 'owned'),
         wanted: listSummary(libraryRows, 'wanted'),
+        trades: listSummary(tradeRows, 'trades'),
       },
       catalog: { ...catalog, sets },
       sync: syncView(sync),
@@ -404,7 +427,7 @@ export class AdminService {
       createdAt?: Date;
       lastSeenAt?: Date;
     },
-    lists?: { owned: ListCount; wanted: ListCount },
+    lists?: { owned: ListCount; wanted: ListCount; trades: ListCount },
   ) {
     return {
       id: user._id.toString(),
@@ -420,16 +443,22 @@ export class AdminService {
       lastSeenAt: user.lastSeenAt,
       owned: lists?.owned ?? emptyList(),
       wanted: lists?.wanted ?? emptyList(),
+      trades: lists?.trades ?? emptyList(),
     };
   }
 
   private async libraryTotals(ids: Types.ObjectId[]) {
-    const totals = new Map<string, { owned: ListCount; wanted: ListCount }>();
+    const totals = new Map<
+      string,
+      { owned: ListCount; wanted: ListCount; trades: ListCount }
+    >();
     if (ids.length === 0) return totals;
     const rows = await this.library.aggregate<{
       _id: { userId: Types.ObjectId; list: 'owned' | 'wanted' };
       cards: number;
       copies: number;
+      tradeCards: number;
+      tradeCopies: number;
     }>([
       { $match: { userId: { $in: ids } } },
       {
@@ -437,6 +466,12 @@ export class AdminService {
           _id: { userId: '$userId', list: '$list' },
           cards: { $sum: 1 },
           copies: { $sum: '$quantity' },
+          tradeCards: {
+            $sum: {
+              $cond: [{ $gt: [{ $ifNull: ['$forTrade', 0] }, 0] }, 1, 0],
+            },
+          },
+          tradeCopies: { $sum: { $ifNull: ['$forTrade', 0] } },
         },
       },
     ]);
@@ -445,10 +480,16 @@ export class AdminService {
       const current = totals.get(key) ?? {
         owned: emptyList(),
         wanted: emptyList(),
+        trades: emptyList(),
       };
       current[row._id.list] = {
         cards: row.cards,
         copies: row.copies,
+        users: 1,
+      };
+      current.trades = {
+        cards: current.trades.cards + row.tradeCards,
+        copies: current.trades.copies + row.tradeCopies,
         users: 1,
       };
       totals.set(key, current);
@@ -486,7 +527,7 @@ function syncView(
 
 function listSummary(
   rows: LibraryGroup[],
-  list: 'owned' | 'wanted',
+  list: 'owned' | 'wanted' | 'trades',
 ): ListCount {
   const row = rows.find((item) => item._id === list);
   return {
@@ -509,6 +550,7 @@ function userFilter(query: ListAdminUsersQueryDto): FilterQuery<User> {
   const filter: FilterQuery<User> = {};
   if (query.status === 'blocked') filter.blocked = true;
   if (query.status === 'sharing') filter.shareEnabled = true;
+  if (query.status === 'private') filter.shareEnabled = { $ne: true };
   if (query.status === 'active') filter.lastSeenAt = { $gte: madridDaysAgo(7) };
   const term = query.q?.trim();
   if (!term) return filter;

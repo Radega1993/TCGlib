@@ -18,8 +18,8 @@ export class ListAdminUsersQueryDto {
 
   @IsOptional()
   @Transform(emptyToUndefined)
-  @IsIn(['blocked', 'sharing', 'active'])
-  status?: 'blocked' | 'sharing' | 'active';
+  @IsIn(['blocked', 'sharing', 'private', 'active'])
+  status?: 'blocked' | 'sharing' | 'private' | 'active';
 
   @IsOptional()
   @Transform(emptyToUndefined)

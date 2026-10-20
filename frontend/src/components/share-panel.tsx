@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { resetShareLink, setShareEnabled } from "@/lib/library-actions";
+import { resetShareLink } from "@/lib/library-actions";
 
 export function SharePanel({ enabled, slug }: { enabled: boolean; slug?: string }) {
   const router = useRouter();
@@ -55,29 +55,11 @@ export function SharePanel({ enabled, slug }: { enabled: boolean; slug?: string 
               Nuevo
             </button>
           </div>
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => run(() => setShareEnabled(false))}
-            className="inline-flex h-11 items-center justify-center rounded-xl px-3 text-sm font-medium text-stone-700 ring-1 ring-stone-300 disabled:text-stone-300"
-          >
-            Pasar a privado
-          </button>
         </div>
       ) : (
-        <div className="mt-2 flex flex-col gap-3">
-          <p className="text-xs leading-5 text-stone-500">
-            En privado no apareces en Jugadores y el enlace deja de funcionar.
-          </p>
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => run(() => setShareEnabled(true))}
-            className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-stone-900 px-3 text-sm font-medium text-white disabled:bg-stone-400"
-          >
-            Hacer público
-          </button>
-        </div>
+        <p className="mt-2 text-xs leading-5 text-stone-500">
+          En privado no apareces en Jugadores y el enlace deja de funcionar. Cámbialo en el interruptor que hay junto al nombre público.
+        </p>
       )}
     </div>
   );

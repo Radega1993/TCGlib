@@ -44,7 +44,7 @@ export async function AdminView() {
             Administración
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-600">
-            Las cartas deseadas y guardadas salen de las listas actuales. Las búsquedas, las fichas abiertas y el tiempo de uso se anotan desde ahora.
+            Los perfiles son públicos por defecto. Desde aquí se actualizan el catálogo y los mazos de la comunidad, y se ven las listas, el intercambio y el uso.
           </p>
         </div>
         <Link
@@ -66,15 +66,20 @@ export async function AdminView() {
         cards={overview.catalog.cards}
         sets={overview.catalog.sets}
       />
-      <SuggestedDecks total={overview.suggestedDecks} />
+      <SuggestedDecks
+        total={overview.suggestedDecks.total}
+        leaders={overview.suggestedDecks.leaders}
+        complete={overview.suggestedDecks.complete}
+      />
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Metric label="Usuarios" value={formatCount(overview.users.total)} detail={`${formatCount(overview.users.blocked)} bloqueados · ${formatCount(overview.users.sharing)} con enlace`} />
+        <Metric label="Usuarios" value={formatCount(overview.users.total)} detail={`${formatCount(overview.users.sharing)} públicos · ${formatCount(overview.users.private)} privados · ${formatCount(overview.users.blocked)} bloqueados`} />
         <Metric label="Activos 7 días" value={formatCount(overview.users.activeWeek)} detail={`${formatCount(overview.users.activeToday)} hoy · ${formatCount(overview.users.activeMonth)} en 30 días`} />
         <Metric label="Tiempo de uso" value={average} detail={overview.activity.users > 0 ? `Media de ${formatCount(overview.activity.users)} usuarios en 30 días` : "Aún no hay uso seguido"} />
         <Metric label="Nuevos" value={formatCount(overview.users.newWeek)} detail={`${formatCount(overview.users.newMonth)} en 30 días`} />
         <Metric label="Bibliotecas" value={formatCount(overview.library.owned.copies)} detail={listDetail(overview.library.owned)} />
         <Metric label="Deseados" value={formatCount(overview.library.wanted.copies)} detail={listDetail(overview.library.wanted)} />
+        <Metric label="Intercambio" value={formatCount(overview.library.trades.copies)} detail={listDetail(overview.library.trades)} />
         <Metric label="Sesiones" value={formatCount(overview.sessions)} detail="Sesiones que todavía no han caducado" />
         <Metric label="Catálogo" value={formatCount(overview.catalog.cards)} detail={`${formatCount(overview.catalog.sets)} sets · ${syncValue(overview)}`} />
       </section>

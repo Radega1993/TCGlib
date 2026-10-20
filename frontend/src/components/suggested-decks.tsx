@@ -5,7 +5,15 @@ import { useRouter } from "next/navigation";
 import { refreshSuggestedDecks } from "@/lib/admin-actions";
 import { formatCount } from "@/lib/format";
 
-export function SuggestedDecks({ total }: { total: number }) {
+export function SuggestedDecks({
+  total,
+  leaders,
+  complete,
+}: {
+  total: number;
+  leaders: number;
+  complete: number;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
@@ -41,7 +49,7 @@ export function SuggestedDecks({ total }: { total: number }) {
         <div>
           <h2 className="text-sm font-semibold text-stone-900">Mazos de la comunidad</h2>
           <p className="mt-1 text-sm text-stone-500">
-            {formatCount(total)} guardados. Busca 3 listas de cada líder del catálogo y no cambia las que ya estaban.
+            {formatCount(total)} guardados. {formatCount(complete)} de {formatCount(leaders)} líderes tienen 3 listas. Actualizar añade listas nuevas y no cambia las que ya estaban.
           </p>
         </div>
         <button

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Pagination } from "@/components/pagination";
+import { PlayerSearch } from "@/components/player-search";
 import { formatCount } from "@/lib/format";
 import { getPlayers } from "@/lib/players";
 
@@ -30,27 +31,10 @@ export async function PlayerDirectory({
         <p className="text-sm text-stone-500">One Piece</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight text-stone-950">Jugadores</h1>
         <p className="mt-2 max-w-2xl text-sm text-stone-600">
-          Perfiles públicos. Desde aquí se abre su biblioteca, lo que intercambian y lo que buscan. El email no se muestra.
+          Primero salen los perfiles con más actividad. Al escribir aparecen hasta cinco coincidencias. El email no se muestra.
         </p>
       </div>
-      <form action="/jugadores" className="flex gap-2">
-        <label className="min-w-0 flex-1">
-          <span className="sr-only">Nombre público</span>
-          <input
-            name="q"
-            defaultValue={q ?? ""}
-            placeholder="Nombre público"
-            maxLength={40}
-            className="h-11 w-full rounded-xl border border-stone-300 bg-white px-3 text-base text-stone-900 outline-none ring-rose-700 focus:ring-2"
-          />
-        </label>
-        <button
-          type="submit"
-          className="inline-flex h-11 items-center rounded-xl bg-stone-900 px-4 text-sm font-medium text-white"
-        >
-          Buscar
-        </button>
-      </form>
+      <PlayerSearch initial={q ?? ""} />
       {players.data.length === 0 ? (
         <p className="rounded-2xl bg-white px-4 py-10 text-center text-sm text-stone-600 ring-1 ring-stone-200">
           {q ? `Nadie público coincide con “${q}”.` : "Todavía no hay perfiles públicos."}

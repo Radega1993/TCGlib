@@ -30,6 +30,28 @@ export class SuggestedDecksService {
     return this.decks.countDocuments();
   }
 
+  async coverage() {
+    const [catalogCodes, grouped, total] = await Promise.all([
+      this.products.leaderCodes(),
+      this.decks.aggregate<{ _id: string; n: number }>([
+        { $group: { _id: '$leaderCode', n: { $sum: 1 } } },
+      ]),
+      this.count(),
+    ]);
+    const leaders = new Set(
+      catalogCodes.flatMap((code) => {
+        const normalized = normalizeCode(String(code));
+        return normalized ? [normalized] : [];
+      }),
+    );
+    const counts = new Map(grouped.map((row) => [row._id, row.n]));
+    let complete = 0;
+    for (const code of leaders) {
+      if ((counts.get(code) ?? 0) >= VARIANTS_PER_LEADER) complete += 1;
+    }
+    return { total, leaders: leaders.size, complete };
+  }
+
   async refresh() {
     const [catalogCodes, stored] = await Promise.all([
       this.products.leaderCodes(),
