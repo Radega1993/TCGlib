@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { serverApiUrl } from "@/lib/api";
 import { readSessionToken } from "@/lib/session";
 import { LibraryList } from "@/lib/types";
@@ -82,6 +83,16 @@ export async function setShareEnabled(enabled: boolean) {
 
 export async function resetShareLink() {
   return shareRequest("/api/me/share/reset", "POST");
+}
+
+export async function setLibraryLayout(layout: "list" | "album") {
+  if (layout !== "list" && layout !== "album") return;
+  const jar = await cookies();
+  jar.set("tcglib_library_view", layout, {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+    sameSite: "lax",
+  });
 }
 
 async function shareRequest(path: string, method: "PUT" | "POST", body?: unknown) {
