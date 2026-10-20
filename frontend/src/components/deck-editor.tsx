@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
+import { DeckImport } from "@/components/deck-import";
 import { QuantityStepper } from "@/components/quantity-stepper";
 import { DeckBreakdown, StatusCopy } from "@/components/public-deck";
 import { productHref } from "@/lib/catalog-query";
@@ -19,6 +20,7 @@ import {
   setDeckShare,
 } from "@/lib/deck-actions";
 import { formatName } from "@/lib/deck-copy";
+import { opsimFileName, opsimJson, opsimText } from "@/lib/opsim";
 import { cardTypeLabel, colorClass, colorLabel, splitColors } from "@/lib/format";
 import { DeckCard, DeckDetail, DeckFormat, DeckSearchCard } from "@/lib/types";
 
@@ -29,7 +31,7 @@ type Draft = {
   lines: { code: string; quantity: number }[];
 };
 
-export function DeckEditor({ deck }: { deck: DeckDetail }) {
+export function DeckEditor({ deck, author }: { deck: DeckDetail; author: string }) {
   const router = useRouter();
   const [seenId, setSeenId] = useState(deck.id);
   const [draft, setDraft] = useState<Draft>(() => draftOf(deck));
@@ -39,6 +41,7 @@ export function DeckEditor({ deck }: { deck: DeckDetail }) {
   const [owned, setOwned] = useState<Record<string, number>>(() => ownedFrom(deck));
   const [share, setShare] = useState({ enabled: deck.shareEnabled, slug: deck.publicSlug });
   const [message, setMessage] = useState<string | null>(null);
+  const [notes, setNotes] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -50,9 +53,29 @@ export function DeckEditor({ deck }: { deck: DeckDetail }) {
     setLeaderCard(deck.leader);
     setOwned(ownedFrom(deck));
     setShare({ enabled: deck.shareEnabled, slug: deck.publicSlug });
+    setNotes([]);
   }
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
+
+  useEffect(() => {
+    const raw = sessionStorage.getItem("tcglib-deck-notes");
+    if (!raw) return;
+    sessionStorage.removeItem("tcglib-deck-notes");
+    let items: string[] = [];
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (!Array.isArray(parsed)) return;
+      items = parsed.filter((item): item is string => typeof item === "string");
+    } catch {
+      return;
+    }
+    if (items.length === 0) return;
+    queueMicrotask(() => {
+      setNotes(items);
+      setMessage("Mazo importado.");
+    });
+  }, []);
 
   useEffect(() => {
     if (!draft.name.trim()) return;
@@ -288,6 +311,13 @@ export function DeckEditor({ deck }: { deck: DeckDetail }) {
 
       {error ? <p className="text-sm text-rose-800">{error}</p> : null}
       {message ? <p className="text-sm text-stone-700">{message}</p> : null}
+      {notes.length > 0 ? (
+        <ul className="flex flex-col gap-1 text-sm text-stone-600">
+          {notes.map((note) => (
+            <li key={note}>{note}</li>
+          ))}
+        </ul>
+      ) : null}
 
       <div className="sticky bottom-3 z-10 flex flex-col gap-2">
         <button
@@ -326,17 +356,6 @@ export function DeckEditor({ deck }: { deck: DeckDetail }) {
         </button>
         <button
           type="button"
-          onClick={() => {
-            void navigator.clipboard.writeText(exportText(draft));
-            setMessage("Lista copiada.");
-            setError(null);
-          }}
-          className="inline-flex h-11 items-center rounded-xl px-3 text-sm font-medium text-stone-700 ring-1 ring-stone-300"
-        >
-          Copiar lista
-        </button>
-        <button
-          type="button"
           disabled={pending}
           onClick={() => {
             if (window.confirm("¿Eliminar este mazo?")) run(() => deleteDeck(deck.id));
@@ -346,6 +365,65 @@ export function DeckEditor({ deck }: { deck: DeckDetail }) {
           Eliminar
         </button>
       </div>
+
+      <section className="rounded-2xl bg-white p-3 ring-1 ring-stone-200">
+        <h2 className="text-sm font-medium text-stone-950">OP Sim</h2>
+        <p className="mt-1 text-sm text-stone-600">
+          Texto o JSON. El líder sale como 1xCODE. Al importar, _p1 y _r1 son la misma carta.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              void navigator.clipboard.writeText(opsimText(draft));
+              setMessage("Texto de OP Sim copiado.");
+              setNotes([]);
+              setError(null);
+            }}
+            className="inline-flex h-11 items-center rounded-xl px-3 text-sm font-medium text-stone-700 ring-1 ring-stone-300"
+          >
+            Copiar texto
+          </button>
+          <button
+            type="button"
+            onClick={() => download(opsimFileName(draft.name, "txt"), opsimText(draft), "text/plain")}
+            className="inline-flex h-11 items-center rounded-xl px-3 text-sm font-medium text-stone-700 ring-1 ring-stone-300"
+          >
+            Descargar texto
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              download(
+                opsimFileName(draft.name, "json"),
+                opsimJson({ ...draft, author }),
+                "application/json",
+              )
+            }
+            className="inline-flex h-11 items-center rounded-xl px-3 text-sm font-medium text-stone-700 ring-1 ring-stone-300"
+          >
+            Descargar JSON
+          </button>
+        </div>
+        <div className="mt-3">
+          <DeckImport
+            deckId={deck.id}
+            onImported={(next, importedNotes) => {
+              const nextDraft = draftOf(next);
+              setDraft(nextDraft);
+              setSaved(nextDraft);
+              setView(next);
+              setLeaderCard(next.leader);
+              setOwned(ownedFrom(next));
+              setShare({ enabled: next.shareEnabled, slug: next.publicSlug });
+              setNotes(importedNotes);
+              setMessage("Mazo importado.");
+              setError(null);
+              router.refresh();
+            }}
+          />
+        </div>
+      </section>
 
       <section className="rounded-2xl bg-white p-3 ring-1 ring-stone-200">
         <h2 className="text-sm font-medium text-stone-950">Enlace público</h2>
@@ -542,9 +620,11 @@ function toPayload(draft: Draft): DeckDraft {
   };
 }
 
-function exportText(draft: Draft) {
-  const rows = [];
-  if (draft.leaderCode) rows.push(`Líder: ${draft.leaderCode}`);
-  for (const line of draft.lines) rows.push(`${line.code} x${line.quantity}`);
-  return rows.join("\n");
+function download(filename: string, contents: string, type: string) {
+  const url = URL.createObjectURL(new Blob([contents], { type }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 }

@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { DeckEditor } from "@/components/deck-editor";
 import { getDeck } from "@/lib/deck";
+import { displayName } from "@/lib/format";
 import { getCurrentUser } from "@/lib/session";
 import { notFound, redirect } from "next/navigation";
 
@@ -29,5 +30,11 @@ async function DeckSlot({ params }: { params: Promise<{ id: string }> }) {
     );
   }
   if (!deck) notFound();
-  return <DeckEditor deck={deck} />;
+  return (
+    <DeckEditor
+      key={deck.id}
+      deck={deck}
+      author={displayName(user)}
+    />
+  );
 }

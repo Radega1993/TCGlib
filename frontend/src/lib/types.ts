@@ -113,9 +113,12 @@ export type SharedListPage = {
 
 export type ShareView = "library" | "wanted" | "trades";
 
+export type ShareTab = "biblioteca" | "intercambio" | "busco";
+
 export type SharedCollection = {
   name: string;
   picture?: string;
+  tab: ShareTab;
   scope: ShareView;
   counts: LibraryCounts;
   facets: CatalogFacets;
@@ -203,7 +206,7 @@ export type AdminOverview = {
 };
 
 export type ShareQuery = CatalogQuery & {
-  wantedPage: number;
+  tab?: ShareTab;
 };
 
 export type LibraryList = "owned" | "wanted";

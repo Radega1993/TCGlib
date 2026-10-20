@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { LibraryList } from "@/components/library-list";
-import { collectionLabel } from "@/lib/format";
+import { collectionLabel, formatCount } from "@/lib/format";
 import { getCurrentUser, getLibrary } from "@/lib/session";
 import { LibraryList as LibraryName } from "@/lib/types";
 
@@ -32,7 +32,15 @@ export async function CollectionView({ list }: { list: LibraryName }) {
           {title}
         </h1>
       </div>
-      <p className="text-sm text-stone-700">{collectionLabel(summary.cards, summary.copies)}</p>
+      <div>
+        <p className="text-sm text-stone-700">{collectionLabel(summary.cards, summary.copies)}</p>
+        {list === "owned" && library.counts.trades.copies > 0 ? (
+          <p className="mt-1 text-sm text-stone-500">
+            {formatCount(Math.max(0, summary.copies - library.counts.trades.copies))} reservadas y{" "}
+            {formatCount(library.counts.trades.copies)} en intercambio. El total las incluye.
+          </p>
+        ) : null}
+      </div>
       <LibraryList entries={library.data} list={list} returnTo={returnTo} />
     </div>
   );

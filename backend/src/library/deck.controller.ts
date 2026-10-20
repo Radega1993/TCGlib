@@ -15,7 +15,12 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { UpdateShareDto } from '../auth/dto/update-share.dto';
 import { PublicUser } from '../auth/public-user';
 import { DeckService } from './deck.service';
-import { CreateDeckDto, SaveDeckDto, SearchDeckQueryDto } from './dto/deck.dto';
+import {
+  CreateDeckDto,
+  ImportDeckDto,
+  SaveDeckDto,
+  SearchDeckQueryDto,
+} from './dto/deck.dto';
 
 @Controller('me/decks')
 @UseGuards(AuthGuard)
@@ -30,6 +35,13 @@ export class DeckController {
   @Post()
   create(@CurrentUser() user: PublicUser, @Body() body: CreateDeckDto) {
     return this.decks.create(user.id, body).then((data) => ({ data }));
+  }
+
+  @Post('import')
+  importNew(@CurrentUser() user: PublicUser, @Body() body: ImportDeckDto) {
+    return this.decks
+      .importNew(user.id, body.source)
+      .then((data) => ({ data }));
   }
 
   @Get('search')
@@ -61,6 +73,17 @@ export class DeckController {
     @Body() body: SaveDeckDto,
   ) {
     return this.decks.preview(user.id, id, body).then((data) => ({ data }));
+  }
+
+  @Post(':id/import')
+  importInto(
+    @CurrentUser() user: PublicUser,
+    @Param('id') id: string,
+    @Body() body: ImportDeckDto,
+  ) {
+    return this.decks
+      .importInto(user.id, id, body.source)
+      .then((data) => ({ data }));
   }
 
   @Post(':id/duplicate')

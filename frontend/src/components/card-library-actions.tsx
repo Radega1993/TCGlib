@@ -143,7 +143,7 @@ export function CardLibraryActions({
         <Count label="Deseadas" value={counts.wanted} />
       </dl>
       <p className="mt-3 text-xs leading-5 text-stone-500">
-        Las copias para intercambio se marcan a mano. El resto se queda reservado.
+        Las copias para intercambio se marcan a mano y siguen en la biblioteca. Reservadas son las que no ofreces.
       </p>
       {error ? <p className="mt-2 text-sm text-rose-700">{error}</p> : null}
     </section>

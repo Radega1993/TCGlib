@@ -29,6 +29,7 @@ import {
   wishlistAdds,
 } from './deck-rules';
 import { CreateDeckDto, SaveDeckDto } from './dto/deck.dto';
+import { assembleOpsim, OpsimError, parseOpsim } from './opsim';
 import { LibraryService } from './library.service';
 import { Deck, DeckSource } from './schemas/deck.schema';
 import { LibraryEntry, LibraryList } from './schemas/library-entry.schema';
@@ -124,6 +125,39 @@ export class DeckService {
       shareEnabled: false,
     });
     return this.present(userId, deck.toObject());
+  }
+
+  async importNew(userId: string, source: string) {
+    const built = await this.readOpsim(source);
+    const deck = await this.decks.create({
+      userId: new Types.ObjectId(userId),
+      name: built.name ?? 'Mazo importado',
+      format: 'extra',
+      leaderCode: built.leaderCode ?? undefined,
+      lines: built.lines,
+      source: 'imported',
+      rulesId: currentRules()?.id ?? '',
+      shareEnabled: false,
+    });
+    return {
+      deck: await this.present(userId, deck.toObject()),
+      notes: built.notes,
+    };
+  }
+
+  async importInto(userId: string, id: string, source: string) {
+    const deck = await this.requireDeck(userId, id);
+    const built = await this.readOpsim(source);
+    if (built.name) deck.name = built.name;
+    deck.set('leaderCode', built.leaderCode ?? undefined);
+    deck.set('lines', built.lines);
+    deck.source = 'imported';
+    if (!deck.rulesId) deck.rulesId = currentRules()?.id ?? '';
+    await deck.save();
+    return {
+      deck: await this.present(userId, deck.toObject()),
+      notes: built.notes,
+    };
   }
 
   async preview(userId: string, id: string, body: SaveDeckDto) {
@@ -376,6 +410,33 @@ export class DeckService {
       availability,
       summary,
     };
+  }
+
+  private async readOpsim(source: string) {
+    let parsed: ReturnType<typeof parseOpsim>;
+    try {
+      parsed = parseOpsim(source);
+    } catch (error) {
+      if (error instanceof OpsimError)
+        throw new BadRequestException(error.message);
+      throw error;
+    }
+    const groups = await this.groupsFor([
+      { lines: parsed.cards.map((card) => ({ code: card.code })) },
+    ]);
+    const types = new Map(
+      parsed.cards.map((card) => [
+        card.code,
+        canonical(groups.get(card.code))?.cardType ?? null,
+      ]),
+    );
+    try {
+      return assembleOpsim(parsed, types);
+    } catch (error) {
+      if (error instanceof OpsimError)
+        throw new BadRequestException(error.message);
+      throw error;
+    }
   }
 
   private async groupsFor(

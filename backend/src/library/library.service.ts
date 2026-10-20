@@ -4,7 +4,10 @@ import { Model, Types } from 'mongoose';
 import { ProductFilterInput } from '../catalog/products/product-filter';
 import { ProductsService } from '../catalog/products/products.service';
 import { Product } from '../catalog/schemas/product.schema';
-import { ShareCollectionQueryDto } from './dto/share-collection.query';
+import {
+  ShareCollectionQueryDto,
+  ShareTab,
+} from './dto/share-collection.query';
 import { LibraryEntry, LibraryList } from './schemas/library-entry.schema';
 import { availableCopies } from './trade-copies';
 
@@ -60,6 +63,21 @@ export class LibraryService {
       );
 
     return { data, list, counts };
+  }
+
+  async publicBoard(
+    userId: string,
+    query: ShareCollectionQueryDto,
+    tab: ShareTab,
+  ) {
+    const counts = await this.countLists(new Types.ObjectId(userId));
+    const view =
+      tab === 'intercambio'
+        ? await this.publicTrades(userId, query)
+        : tab === 'busco'
+          ? await this.publicWanted(userId, query)
+          : await this.publicLibrary(userId, query);
+    return { ...view, counts, tab };
   }
 
   async publicLibrary(userId: string, query: ShareCollectionQueryDto) {

@@ -106,12 +106,7 @@ export function Sidebar({
 
       {user ? (
         <div className="mt-auto pt-6">
-          <SharePanel
-            enabled={user.shareEnabled}
-            librarySlug={user.publicSlug}
-            wantedSlug={user.wantedSlug}
-            tradeSlug={user.tradeSlug}
-          />
+          <SharePanel enabled={user.shareEnabled} slug={user.publicSlug} />
         </div>
       ) : null}
     </aside>

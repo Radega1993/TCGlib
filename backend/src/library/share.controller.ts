@@ -6,7 +6,10 @@ import {
   Query,
 } from '@nestjs/common';
 import { AuthService } from '../auth/auth.service';
-import { ShareCollectionQueryDto } from './dto/share-collection.query';
+import {
+  ShareCollectionQueryDto,
+  ShareTab,
+} from './dto/share-collection.query';
 import { LibraryService } from './library.service';
 
 @Controller('share')
@@ -26,12 +29,11 @@ export class ShareController {
       throw new NotFoundException('Este enlace no está disponible');
     }
 
-    const collection =
-      profile.view === 'trades'
-        ? await this.library.publicTrades(profile.id, query)
-        : profile.view === 'wanted'
-          ? await this.library.publicWanted(profile.id, query)
-          : await this.library.publicLibrary(profile.id, query);
+    const collection = await this.library.publicBoard(
+      profile.id,
+      query,
+      query.tab ?? tabForView(profile.view),
+    );
     return {
       data: {
         name: profile.name,
@@ -40,4 +42,10 @@ export class ShareController {
       },
     };
   }
+}
+
+function tabForView(view: 'library' | 'wanted' | 'trades'): ShareTab {
+  if (view === 'wanted') return 'busco';
+  if (view === 'trades') return 'intercambio';
+  return 'biblioteca';
 }

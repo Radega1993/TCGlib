@@ -6,7 +6,6 @@ import { CardSearch } from "@/components/card-search";
 import {
   activeFilterCount,
   catalogHref,
-  sameFilters,
   shareHref,
   toggleValue,
 } from "@/lib/catalog-query";
@@ -17,7 +16,7 @@ import {
   colorLabel,
   rarityLabel,
 } from "@/lib/format";
-import { CardSet, CatalogFacets, CatalogQuery } from "@/lib/types";
+import { CardSet, CatalogFacets, CatalogQuery, ShareTab } from "@/lib/types";
 
 export function Filters({
   sets,
@@ -28,7 +27,7 @@ export function Filters({
   sets: CardSet[];
   facets: CatalogFacets;
   query: CatalogQuery;
-  share?: { slug: string; wantedPage: number };
+  share?: { slug: string; tab: ShareTab };
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -53,10 +52,7 @@ export function Filters({
 
   function destination(next: CatalogQuery) {
     if (!share) return catalogHref(next);
-    return shareHref(share.slug, {
-      ...next,
-      wantedPage: sameFilters(query, next) ? share.wantedPage : 1,
-    });
+    return shareHref(share.slug, { ...next, tab: share.tab });
   }
 
   function apply(patch: Partial<CatalogQuery> = {}) {

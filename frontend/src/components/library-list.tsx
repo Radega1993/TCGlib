@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { LibraryQuantity } from "@/components/library-quantity";
 import { productHref } from "@/lib/catalog-query";
-import { colorClass, splitColors } from "@/lib/format";
+import { colorClass, formatCount, splitColors } from "@/lib/format";
 import { LibraryEntry, type LibraryList } from "@/lib/types";
 
 export function LibraryList({
@@ -51,6 +51,8 @@ export function LibraryList({
     <ul className="flex flex-col gap-3">
       {entries.map((entry) => {
         const colors = splitColors(entry.product.color);
+        const forTrade = entry.forTrade ?? 0;
+        const reserved = Math.max(0, entry.quantity - forTrade);
         return (
           <li
             key={entry.product.externalId}
@@ -104,9 +106,12 @@ export function LibraryList({
                 </p>
               ) : (
                 <div className="flex flex-col gap-1">
-                  {list === "owned" && (entry.forTrade ?? 0) > 0 ? (
-                    <p className="text-xs text-stone-500">
-                      Reservadas {entry.quantity - (entry.forTrade ?? 0)} · Intercambio {entry.forTrade}
+                  {list === "owned" ? (
+                    <p className="text-sm font-medium text-stone-800">
+                      En biblioteca {formatCount(entry.quantity)}
+                      {forTrade > 0
+                        ? ` · Reservadas ${formatCount(reserved)} · Intercambio ${formatCount(forTrade)}`
+                        : ""}
                     </p>
                   ) : null}
                   <LibraryQuantity

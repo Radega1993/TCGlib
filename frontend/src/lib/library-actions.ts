@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { serverApiUrl } from "@/lib/api";
 import { readSessionToken } from "@/lib/session";
-import { LibraryList, ShareView } from "@/lib/types";
+import { LibraryList } from "@/lib/types";
 
 export async function setCardQuantity(
   externalId: number,
@@ -80,8 +80,8 @@ export async function setShareEnabled(enabled: boolean) {
   return shareRequest("/api/me/share", "PUT", { enabled });
 }
 
-export async function resetShareLink(list: ShareView) {
-  return shareRequest("/api/me/share/reset", "POST", { list });
+export async function resetShareLink() {
+  return shareRequest("/api/me/share/reset", "POST");
 }
 
 async function shareRequest(path: string, method: "PUT" | "POST", body?: unknown) {

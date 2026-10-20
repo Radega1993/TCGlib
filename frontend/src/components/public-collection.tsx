@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Filters } from "@/components/filters";
 import { LibraryList } from "@/components/library-list";
@@ -5,7 +6,13 @@ import { Pagination } from "@/components/pagination";
 import { activeFilterCount, parseShareQuery, shareHref } from "@/lib/catalog-query";
 import { collectionLabel, formatCount } from "@/lib/format";
 import { getSharedCollection } from "@/lib/session";
-import { LibraryEntry, SharedCollection, ShareView } from "@/lib/types";
+import { LibraryEntry, SharedCollection, ShareTab } from "@/lib/types";
+
+const TABS: { id: ShareTab; label: string }[] = [
+  { id: "biblioteca", label: "Biblioteca" },
+  { id: "intercambio", label: "Intercambio" },
+  { id: "busco", label: "Busco" },
+];
 
 export async function PublicCollection({
   slug,
@@ -27,8 +34,10 @@ export async function PublicCollection({
   }
   if (!collection) notFound();
 
-  const back = shareHref(slug, query);
+  const active = collection.tab;
+  const back = shareHref(slug, { ...query, tab: active });
   const filtered = activeFilterCount(query) > 0;
+  const page = publicPage(collection);
 
   return (
     <div className="flex flex-col gap-8">
@@ -43,88 +52,88 @@ export async function PublicCollection({
           />
         ) : null}
         <div>
-          <p className="text-sm text-stone-500">{publicEyebrow(collection.scope)}</p>
+          <p className="text-sm text-stone-500">Colección pública · One Piece</p>
           <h1 className="text-2xl font-semibold tracking-tight text-stone-950">
             {collection.name}
           </h1>
-          <p className="mt-1 text-sm text-stone-600">{publicSummary(collection)}</p>
         </div>
       </div>
+      <nav aria-label="Listas" className="flex gap-2">
+        {TABS.map((tab) => {
+          const current = tab.id === active;
+          const count = tabCount(collection, tab.id);
+          return (
+            <Link
+              key={tab.id}
+              href={shareHref(slug, { ...query, tab: tab.id, page: 1 })}
+              aria-current={current ? "page" : undefined}
+              className={`inline-flex h-11 flex-1 items-center justify-center rounded-xl px-2 text-sm font-medium ${
+                current
+                  ? "bg-white text-stone-950 ring-1 ring-stone-200"
+                  : "text-stone-600"
+              }`}
+            >
+              {tab.label}
+              <span className="ml-1.5 tabular-nums text-stone-500">{formatCount(count)}</span>
+            </Link>
+          );
+        })}
+      </nav>
       <Filters
         sets={collection.sets}
         facets={collection.facets}
         query={query}
-        share={{ slug, wantedPage: query.wantedPage }}
+        share={{ slug, tab: active }}
       />
       <PublicList
-        title={publicTitle(collection.scope)}
-        list={collection.scope === "wanted" ? "wanted" : "owned"}
-        entries={publicEntries(collection)}
-        total={publicPage(collection).total}
-        copies={publicPage(collection).copies}
-        page={publicPage(collection).page}
-        limit={publicPage(collection).limit}
+        title={publicTitle(active)}
+        list={active === "busco" ? "wanted" : "owned"}
+        entries={page.entries}
+        total={page.total}
+        copies={page.copies}
+        page={page.page}
+        limit={page.limit}
         filtered={filtered}
         term={query.q}
         returnTo={back}
-        empty={publicEmpty(collection.scope)}
+        empty={publicEmpty(active)}
         copiesLabel={
-          collection.scope === "trades"
+          active === "intercambio"
             ? (quantity) => `${quantity} ${quantity === 1 ? "disponible" : "disponibles"}`
             : undefined
         }
-        hrefFor={(page) => shareHref(slug, { ...query, page })}
+        hrefFor={(nextPage) => shareHref(slug, { ...query, tab: active, page: nextPage })}
       />
     </div>
   );
 }
 
-function publicEyebrow(scope: ShareView) {
-  if (scope === "wanted") return "Deseados públicos · One Piece";
-  if (scope === "trades") return "Intercambio público · One Piece";
-  return "Biblioteca pública · One Piece";
+function tabCount(collection: SharedCollection, tab: ShareTab) {
+  if (tab === "intercambio") return collection.counts.trades.cards;
+  if (tab === "busco") return collection.counts.wanted.cards;
+  return collection.counts.owned.cards;
 }
 
-function publicTitle(scope: ShareView) {
-  if (scope === "wanted") return "Deseados";
-  if (scope === "trades") return "Intercambio";
+function publicTitle(tab: ShareTab) {
+  if (tab === "busco") return "Busco";
+  if (tab === "intercambio") return "Intercambio";
   return "Biblioteca";
 }
 
-function publicEmpty(scope: ShareView) {
-  if (scope === "wanted") return "Esta lista de deseos está vacía.";
-  if (scope === "trades") return "No hay cartas disponibles para intercambio.";
+function publicEmpty(tab: ShareTab) {
+  if (tab === "busco") return "No busca ninguna carta.";
+  if (tab === "intercambio") return "No hay cartas disponibles para intercambio.";
   return "Esta biblioteca no tiene cartas.";
 }
 
 function publicPage(collection: SharedCollection) {
   const page =
-    collection.scope === "wanted"
+    collection.tab === "busco"
       ? collection.wanted
-      : collection.scope === "trades"
+      : collection.tab === "intercambio"
         ? collection.trades
         : collection.owned;
   return page ?? { total: 0, copies: 0, page: 1, limit: 24, entries: [] };
-}
-
-function publicEntries(collection: SharedCollection) {
-  return publicPage(collection).entries;
-}
-
-function publicSummary(collection: SharedCollection) {
-  if (collection.scope === "trades") {
-    return tradeSummary(collection.counts.trades.cards, collection.counts.trades.copies);
-  }
-  if (collection.scope === "wanted") {
-    return `Deseados ${collectionLabel(collection.counts.wanted.cards, collection.counts.wanted.copies)}`;
-  }
-  return `Biblioteca ${collectionLabel(collection.counts.owned.cards, collection.counts.owned.copies)}`;
-}
-
-function tradeSummary(cards: number, copies: number) {
-  const cardLabel = cards === 1 ? "carta" : "cartas";
-  const copyLabel = copies === 1 ? "disponible" : "disponibles";
-  return `${formatCount(cards)} ${cardLabel} · ${formatCount(copies)} ${copyLabel}`;
 }
 
 function PublicList({
@@ -167,13 +176,7 @@ function PublicList({
       </div>
       {entries.length === 0 ? (
         <p className="rounded-2xl bg-white px-4 py-10 text-center text-sm text-stone-600 ring-1 ring-stone-200">
-          {filtered
-            ? "Ninguna carta coincide con estos filtros."
-            : empty
-              ? empty
-              : list === "owned"
-                ? "Esta biblioteca no tiene cartas."
-                : "Esta lista de deseos está vacía."}
+          {filtered ? "Ninguna carta coincide con estos filtros." : empty}
         </p>
       ) : (
         <LibraryList
@@ -195,4 +198,10 @@ function PublicList({
       ) : null}
     </section>
   );
+}
+
+function tradeSummary(cards: number, copies: number) {
+  const cardLabel = cards === 1 ? "carta" : "cartas";
+  const copyLabel = copies === 1 ? "disponible" : "disponibles";
+  return `${formatCount(cards)} ${cardLabel} · ${formatCount(copies)} ${copyLabel}`;
 }

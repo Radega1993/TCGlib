@@ -1,4 +1,4 @@
-import { CatalogQuery, ShareQuery } from "@/lib/types";
+import { CatalogQuery, ShareQuery, ShareTab } from "@/lib/types";
 
 const LIST_LIMIT = {
   color: 8,
@@ -36,18 +36,22 @@ export function catalogHref(query: CatalogQuery, page = query.page) {
 export function parseShareQuery(
   raw: Record<string, string | string[] | undefined>,
 ): ShareQuery {
-  const wanted = Number(first(raw.wanted) ?? 1);
   return {
     ...parseCatalogQuery(raw),
-    wantedPage: Number.isInteger(wanted) && wanted > 0 ? wanted : 1,
+    tab: shareTab(first(raw.tab)),
   };
 }
 
 export function shareHref(slug: string, query: ShareQuery) {
   const params = filterParams(query, query.page);
-  if (query.wantedPage > 1) params.set("wanted", String(query.wantedPage));
+  if (query.tab) params.set("tab", query.tab);
   const search = params.toString();
   return search ? `/u/${slug}?${search}` : `/u/${slug}`;
+}
+
+function shareTab(value: string | undefined): ShareTab | undefined {
+  if (value === "biblioteca" || value === "intercambio" || value === "busco") return value;
+  return undefined;
 }
 
 export function sameFilters(left: CatalogQuery, right: CatalogQuery) {

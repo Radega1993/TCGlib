@@ -6,6 +6,11 @@ import { serverApiUrl } from "@/lib/api";
 import { readSessionToken } from "@/lib/session";
 import { DeckDetail, DeckFormat, DeckSearchCard } from "@/lib/types";
 
+export type ImportedDeck = {
+  deck: DeckDetail;
+  notes: string[];
+};
+
 export type DeckDraft = {
   name: string;
   format: DeckFormat;
@@ -24,6 +29,18 @@ export async function createDeck() {
   }
   revalidatePath("/mazos");
   redirect(`/mazos/${result.data.id}`);
+}
+
+export async function importNewDeck(source: string) {
+  const result = await request<ImportedDeck>("/api/me/decks/import", "POST", { source });
+  if (result.ok) revalidatePath("/mazos");
+  return result;
+}
+
+export async function importDeckInto(id: string, source: string) {
+  const result = await request<ImportedDeck>(`/api/me/decks/${id}/import`, "POST", { source });
+  if (result.ok) revalidateDeck(id, result.data.deck.publicSlug);
+  return result;
 }
 
 export async function previewDeck(id: string, draft: DeckDraft) {
@@ -103,7 +120,15 @@ async function request<T>(path: string, method: "GET" | "POST" | "PUT" | "DELETE
   }).catch(() => null);
   if (!response) return { ok: false as const };
   if (response.status === 401) return { ok: false as const, error: "auth" as const };
-  if (!response.ok) return { ok: false as const };
+  if (!response.ok) return { ok: false as const, message: await errorMessage(response) };
   const payload = (await response.json()) as { data: T };
   return { ok: true as const, data: payload.data };
+}
+
+async function errorMessage(response: Response) {
+  const payload = (await response.json().catch(() => null)) as { message?: unknown } | null;
+  const message = payload?.message;
+  if (typeof message === "string") return message;
+  if (Array.isArray(message) && typeof message[0] === "string") return message[0];
+  return undefined;
 }

@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { DeckImport } from "@/components/deck-import";
 import { createDeck } from "@/lib/deck-actions";
 import { formatName, legalityTitle } from "@/lib/deck-copy";
 import { getDecks } from "@/lib/deck";
@@ -20,11 +21,12 @@ export async function DeckIndex() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
+      <div className="flex flex-wrap items-start gap-3">
+        <div className="mr-auto">
           <p className="text-sm text-stone-500">One Piece</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight text-stone-950">Mazos</h1>
         </div>
+        <DeckImport />
         <form action={createDeck}>
           <button
             type="submit"

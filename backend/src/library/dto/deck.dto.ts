@@ -25,7 +25,7 @@ export class DeckLineDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(4)
+  @Max(99)
   quantity: number;
 }
 
@@ -60,6 +60,13 @@ export class CreateDeckDto {
   @IsOptional()
   @IsIn(DECK_FORMATS)
   format?: DeckFormat;
+}
+
+export class ImportDeckDto {
+  @IsString({ message: 'Pega un mazo en texto o JSON.' })
+  @MinLength(1, { message: 'Pega un mazo en texto o JSON.' })
+  @MaxLength(20000, { message: 'Ese mazo es demasiado largo.' })
+  source: string;
 }
 
 export class SearchDeckQueryDto {

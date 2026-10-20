@@ -141,10 +141,7 @@ export class AuthService {
     const user = await this.users.findById(session.userId);
     if (!user || user.blocked) return null;
     await this.touchActivity(session, user._id);
-    if (
-      user.shareEnabled &&
-      (!user.publicSlug || !user.wantedSlug || !user.tradeSlug)
-    ) {
+    if (user.shareEnabled && !user.publicSlug) {
       await this.ensureSlugs(user);
     }
     return this.toPublicUser(user);
@@ -192,15 +189,14 @@ export class AuthService {
     return this.shareLinks(user);
   }
 
-  async resetShare(userId: string, list: 'library' | 'wanted' | 'trades') {
+  async resetShare(userId: string) {
     const user = await this.users.findById(userId);
     if (!user) {
       throw new UnauthorizedException('La sesión no es válida');
     }
-    const slug = await this.createUniqueSlug();
-    if (list === 'library') user.publicSlug = slug;
-    if (list === 'wanted') user.wantedSlug = slug;
-    if (list === 'trades') user.tradeSlug = slug;
+    user.publicSlug = await this.createUniqueSlug();
+    user.set('wantedSlug', undefined);
+    user.set('tradeSlug', undefined);
     user.shareEnabled = true;
     await user.save();
     return this.shareLinks(user);
@@ -246,19 +242,8 @@ export class AuthService {
   }
 
   private async ensureSlugs(user: UserDocument) {
-    const reserved = [user.publicSlug, user.wantedSlug, user.tradeSlug].filter(
-      (slug): slug is string => Boolean(slug),
-    );
     if (!user.publicSlug) {
-      user.publicSlug = await this.createUniqueSlug(reserved);
-      reserved.push(user.publicSlug);
-    }
-    if (!user.wantedSlug) {
-      user.wantedSlug = await this.createUniqueSlug(reserved);
-      reserved.push(user.wantedSlug);
-    }
-    if (!user.tradeSlug) {
-      user.tradeSlug = await this.createUniqueSlug(reserved);
+      user.publicSlug = await this.createUniqueSlug();
     }
     await user.save();
   }
