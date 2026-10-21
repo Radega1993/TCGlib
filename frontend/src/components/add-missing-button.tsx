@@ -8,9 +8,11 @@ import { formatCount } from "@/lib/format";
 export function AddMissingButton({
   setId,
   missing,
+  tcg = "one-piece",
 }: {
   setId: string;
   missing: number;
+  tcg?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -34,7 +36,7 @@ export function AddMissingButton({
           setMessage(null);
           setFailed(false);
           startTransition(async () => {
-            const result = await addMissingToWishlist(setId);
+            const result = await addMissingToWishlist(setId, tcg);
             if (!result.ok) {
               setFailed(true);
               setMessage("No se pudieron añadir. Inténtalo de nuevo.");

@@ -122,15 +122,25 @@ export function mapProduct(
     ),
     attributes,
     rarity: clean(attributes.Rarity),
-    color: clean(attributes.Color),
-    cardType: clean(attributes.CardType),
-    cost: clean(attributes.Cost),
-    power: clean(attributes.Power),
+    color:
+      clean(attributes.Color) ??
+      (tcgSlug === 'riftbound' ? clean(attributes.Domain) : undefined),
+    cardType:
+      clean(attributes.CardType) ??
+      (tcgSlug === 'riftbound' ? clean(attributes['Card Type']) : undefined),
+    cost:
+      clean(attributes.Cost) ??
+      (tcgSlug === 'riftbound' ? clean(attributes['Energy Cost']) : undefined),
+    power:
+      clean(attributes.Power) ??
+      (tcgSlug === 'riftbound' ? clean(attributes.Might) : undefined),
     life: clean(attributes.Life),
     artist: clean(attributes.Artist),
     cardNumber: clean(attributes.Number) ?? clean(product.cardNumber),
     subtypes: clean(attributes.Subtypes),
-    cardAttribute: clean(attributes.Attribute),
+    cardAttribute:
+      clean(attributes.Attribute) ??
+      (tcgSlug === 'riftbound' ? clean(attributes.Tag) : undefined),
     markets: product.markets,
     sourceCreatedAt: toDate(product.createdAt),
     sourceUpdatedAt: toDate(product.updatedAt),

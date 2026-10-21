@@ -8,6 +8,11 @@ export class SearchPlayersQueryDto {
   q?: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  tcg?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)

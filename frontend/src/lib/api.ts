@@ -29,10 +29,10 @@ export function getApiUrl() {
   return serverApiUrl();
 }
 
-export function getProducts(query: CatalogQuery) {
+export function getProducts(query: CatalogQuery, tcg = "one-piece") {
   return apiGet<Paginated<Product>>(
     `/api/products${toQuery({
-      tcg: "one-piece",
+      tcg,
       type: "card",
       q: query.q,
       set: query.set,
@@ -48,26 +48,26 @@ export function getProducts(query: CatalogQuery) {
   );
 }
 
-export function getSuggestions(q: string) {
+export function getSuggestions(q: string, tcg = "one-piece") {
   return apiGet<{ data: CardSuggestion[] }>(
-    `/api/products/suggest${toQuery({ q, limit: 8 })}`,
+    `/api/products/suggest${toQuery({ q, limit: 8, tcg })}`,
   );
 }
 
-export function getFacets() {
-  return apiGet<{ data: CatalogFacets }>("/api/catalog/facets?tcg=one-piece");
+export function getFacets(tcg = "one-piece") {
+  return apiGet<{ data: CatalogFacets }>(`/api/catalog/facets?tcg=${encodeURIComponent(tcg)}`);
 }
 
 export function getProduct(externalId: number) {
   return apiGet<{ data: Product }>(`/api/products/${externalId}`);
 }
 
-export function getSets() {
-  return apiGet<{ data: CardSet[]; total: number }>("/api/sets?tcg=one-piece");
+export function getSets(tcg = "one-piece") {
+  return apiGet<{ data: CardSet[]; total: number }>(`/api/sets?tcg=${encodeURIComponent(tcg)}`);
 }
 
-export function getStats() {
-  return apiGet<{ data: CatalogStats }>("/api/catalog/stats?tcg=one-piece");
+export function getStats(tcg = "one-piece") {
+  return apiGet<{ data: CatalogStats }>(`/api/catalog/stats?tcg=${encodeURIComponent(tcg)}`);
 }
 
 async function apiGet<T>(path: string): Promise<T> {

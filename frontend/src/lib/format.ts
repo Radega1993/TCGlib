@@ -7,6 +7,13 @@ const COLOR_CLASS: Record<string, string> = {
   Purple: "bg-violet-600",
   Black: "bg-stone-900",
   Yellow: "bg-amber-400",
+  Fury: "bg-red-700",
+  Calm: "bg-teal-600",
+  Mind: "bg-sky-600",
+  Body: "bg-orange-600",
+  Chaos: "bg-fuchsia-700",
+  Order: "bg-amber-300",
+  None: "bg-stone-400",
 };
 
 const percents = new Intl.NumberFormat("es-ES", {
@@ -66,6 +73,13 @@ const COLOR_LABEL: Record<string, string> = {
   Purple: "Morado",
   Black: "Negro",
   Yellow: "Amarillo",
+  Fury: "Furia",
+  Calm: "Calma",
+  Mind: "Mente",
+  Body: "Cuerpo",
+  Chaos: "Caos",
+  Order: "Orden",
+  None: "Sin dominio",
 };
 
 const RARITY_LABEL: Record<string, string> = {
@@ -78,6 +92,12 @@ const RARITY_LABEL: Record<string, string> = {
   PR: "Promo",
   TR: "Tesoro raro",
   "DON!!": "DON!!",
+  Common: "Común",
+  Uncommon: "Poco común",
+  Rare: "Rara",
+  Epic: "Épica",
+  Legendary: "Legendaria",
+  Showcase: "Showcase",
 };
 
 const CARD_TYPE_LABEL: Record<string, string> = {
@@ -86,6 +106,13 @@ const CARD_TYPE_LABEL: Record<string, string> = {
   Event: "Evento",
   Stage: "Escenario",
   "DON!!": "DON!!",
+  Unit: "Unidad",
+  Spell: "Hechizo",
+  Gear: "Equipo",
+  Rune: "Runa",
+  Battlefield: "Campo de batalla",
+  Legend: "Leyenda",
+  "Signature Spell": "Hechizo insignia",
 };
 
 const ATTRIBUTE_LABEL: Record<string, string> = {

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Suspense, useState } from "react";
 import { AliasForm } from "@/components/alias-form";
 import { Sidebar } from "@/components/sidebar";
+import { riftboundPath } from "@/lib/games";
 import { PublicUser } from "@/lib/types";
 
 export function AppChrome({ user }: { user: PublicUser | null }) {
@@ -30,6 +31,7 @@ function Chrome({
 }) {
   const [menuPath, setMenuPath] = useState<string | null>(null);
   const open = menuPath === pathname;
+  const home = riftboundPath(pathname) ? "/riftbound" : "/";
 
   return (
     <>
@@ -61,7 +63,7 @@ function Chrome({
             >
               Menú
             </button>
-            <Link href="/" className="flex min-w-0">
+            <Link href={home} className="flex min-w-0">
               <Image
                 src="/logo-mark.png"
                 alt="TCGlib"
@@ -80,13 +82,15 @@ function Chrome({
           </div>
         </div>
         {user ? (
-          <div className="flex items-center gap-2 px-4 pb-3 md:hidden">
-            <UserMark user={user} />
+          <div className="flex items-start gap-2 px-4 pb-3 md:hidden">
+            <span className="mt-1.5">
+              <UserMark user={user} />
+            </span>
             <AliasForm
               alias={user.alias ?? ""}
               shareEnabled={user.shareEnabled}
               id="public-alias-mobile"
-              showLabel
+              compact
             />
           </div>
         ) : null}

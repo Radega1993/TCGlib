@@ -22,11 +22,13 @@ import { Tcg } from '../schemas/tcg.schema';
 import { mapProduct, mapSet, mapTcg, ProductRecord } from './map-catalog';
 
 export const ONE_PIECE_SLUG = 'one-piece';
+export const RIFTBOUND_SLUG = 'riftbound';
 const PAGE_SIZE = 100;
 const PAGE_DELAY_MS = 150;
 
 export const SYNC_GAMES = [
   { slug: ONE_PIECE_SLUG, name: 'One Piece' },
+  { slug: RIFTBOUND_SLUG, name: 'Riftbound' },
 ] as const;
 
 export interface SyncOnePieceResult {
@@ -77,7 +79,9 @@ export class CatalogSyncService implements OnModuleInit {
       );
     }
     this.jobs.add(slug);
-    void this.syncOnePiece()
+    const task =
+      slug === RIFTBOUND_SLUG ? this.syncCards(slug) : this.syncOnePiece();
+    void task
       .catch((error: unknown) => {
         this.logger.error(
           error instanceof Error ? error.message : String(error),
@@ -229,6 +233,159 @@ export class CatalogSyncService implements OnModuleInit {
         `Sincronización terminada: ${cards} cartas, ${sealed} sellados, ${requests} peticiones`,
       );
       return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await this.syncRunModel.updateOne(
+        { _id: run._id },
+        {
+          $set: {
+            status: 'failed',
+            finishedAt: new Date(),
+            requests,
+            setsUpserted,
+            productsUpserted,
+            cards,
+            sealed,
+            error: message,
+          },
+        },
+      );
+      throw error;
+    }
+  }
+
+  async syncCards(slug: typeof RIFTBOUND_SLUG) {
+    const startedAt = new Date();
+    const run = await this.syncRunModel.create({
+      tcgSlug: slug,
+      status: 'running',
+      startedAt,
+    });
+
+    let requests = 0;
+    let setsUpserted = 0;
+    let productsUpserted = 0;
+    let cards = 0;
+    const sealed = 0;
+    const usedSets = new Set<string>();
+
+    try {
+      requests += 1;
+      const tcgResponse = await this.apitcg.get<ApitcgItemResponse<ApitcgTcg>>(
+        `/api/tcgs/${slug}`,
+      );
+      const tcg = mapTcg(tcgResponse.data, new Date());
+      await this.tcgModel.updateOne(
+        { slug: tcg.slug },
+        { $set: tcg },
+        { upsert: true },
+      );
+
+      requests += 1;
+      const setsResponse = await this.apitcg.get<ApitcgListResponse<ApitcgSet>>(
+        `/api/${slug}/sets`,
+      );
+      const syncedSetsAt = new Date();
+      const sets = setsResponse.data.map((set) => mapSet(set, syncedSetsAt));
+
+      let afterId = 0;
+      let page = 0;
+      while (true) {
+        requests += 1;
+        const response = await this.apitcg.get<
+          ApitcgListResponse<ApitcgProduct>
+        >('/api/products', {
+          tcg: slug,
+          type: 'card',
+          sortBy: '_id',
+          sortOrder: 'asc',
+          limit: PAGE_SIZE,
+          afterId,
+        });
+
+        if (!response.data?.length) break;
+
+        const lastId = response.data[response.data.length - 1]._id;
+        if (typeof lastId !== 'number' || lastId <= afterId) {
+          throw new Error(
+            `El cursor de APITCG no avanzó (afterId=${afterId}, lastId=${String(lastId)})`,
+          );
+        }
+
+        const records = response.data
+          .map((product) => mapProduct(product, new Date()))
+          .filter((record) => record.type === 'card');
+        if (records.length > 0) {
+          await this.upsertProducts(records);
+          for (const record of records) usedSets.add(record.set.externalId);
+        }
+
+        page += 1;
+        productsUpserted += records.length;
+        cards += records.length;
+        afterId = lastId;
+
+        await this.syncRunModel.updateOne(
+          { _id: run._id },
+          {
+            $set: {
+              requests,
+              setsUpserted,
+              productsUpserted,
+              cards,
+              sealed,
+            },
+          },
+        );
+        this.logger.log(
+          `Página ${page}: ${records.length} cartas de ${slug} (cursor ${afterId}, acumulado ${productsUpserted})`,
+        );
+        await delay(PAGE_DELAY_MS);
+      }
+
+      const cardSets = sets.filter((set) => usedSets.has(set.externalId));
+      if (cardSets.length > 0) {
+        await this.setModel.bulkWrite(
+          cardSets.map((set) => ({
+            updateOne: {
+              filter: { externalId: set.externalId },
+              update: { $set: set },
+              upsert: true,
+            },
+          })),
+          { ordered: true },
+        );
+      }
+      setsUpserted = cardSets.length;
+
+      const finishedAt = new Date();
+      await this.syncRunModel.updateOne(
+        { _id: run._id },
+        {
+          $set: {
+            status: 'completed',
+            finishedAt,
+            requests,
+            setsUpserted,
+            productsUpserted,
+            cards,
+            sealed,
+          },
+        },
+      );
+      this.logger.log(
+        `Sincronización de ${slug} terminada: ${cards} cartas, ${setsUpserted} colecciones, ${requests} peticiones`,
+      );
+      return {
+        tcgSlug: slug,
+        sets: setsUpserted,
+        products: productsUpserted,
+        cards,
+        sealed,
+        requests,
+        startedAt: startedAt.toISOString(),
+        finishedAt: finishedAt.toISOString(),
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       await this.syncRunModel.updateOne(

@@ -86,6 +86,7 @@ export class AdminService {
       viewRows,
       suggestedDeckCount,
       tradeRows,
+      gameRows,
     ] = await Promise.all([
       this.users.countDocuments(),
       this.users.countDocuments({ blocked: true }),
@@ -176,6 +177,7 @@ export class AdminService {
           },
         },
       ]),
+      this.gameCatalog(),
     ]);
 
     const [wanted, owned, viewed] = await Promise.all([
@@ -211,11 +213,7 @@ export class AdminService {
       owned,
       searched: searchRows.map((row) => ({ term: row._id, count: row.count })),
       viewed,
-      games: SYNC_GAMES.map((game) => ({
-        slug: game.slug,
-        name: game.name,
-        sync: game.slug === ONE_PIECE_SLUG ? syncView(sync) : null,
-      })),
+      games: gameRows,
       suggestedDecks: suggestedDeckCount,
     };
   }
@@ -226,6 +224,31 @@ export class AdminService {
 
   refreshSuggestedDecks() {
     return this.suggestedDecks.refresh();
+  }
+
+  private gameCatalog() {
+    return Promise.all(
+      SYNC_GAMES.map(async (game) => {
+        const [counts, sets, sync] = await Promise.all([
+          this.productsService.countByType(game.slug),
+          this.setsService.count(game.slug),
+          this.syncRuns
+            .findOne({ tcgSlug: game.slug })
+            .sort({ startedAt: -1 })
+            .select(
+              'status startedAt finishedAt cards sealed productsUpserted error',
+            )
+            .lean(),
+        ]);
+        return {
+          slug: game.slug,
+          name: game.name,
+          cards: counts.cards,
+          sets,
+          sync: syncView(sync),
+        };
+      }),
+    );
   }
 
   async usersPage(query: ListAdminUsersQueryDto) {

@@ -3,22 +3,39 @@
 import Image from "next/image";
 import Link from "next/link";
 import { SharePanel } from "@/components/share-panel";
+import { riftboundPath } from "@/lib/games";
 import { PublicUser } from "@/lib/types";
 
-const LINKS: {
-  href: string;
+const SECTIONS: {
+  key: string;
   label: string;
   icon: NavIconName;
-  match: (path: string) => boolean;
+  public: boolean;
 }[] = [
-  { href: "/", label: "Catálogo", icon: "catalog", match: (path) => path === "/" || path.startsWith("/products") },
-  { href: "/jugadores", label: "Jugadores", icon: "players", match: (path) => path.startsWith("/jugadores") },
-  { href: "/biblioteca", label: "Biblioteca", icon: "library", match: (path) => path.startsWith("/biblioteca") },
-  { href: "/progreso", label: "Progreso", icon: "progress", match: (path) => path.startsWith("/progreso") },
-  { href: "/deseados", label: "Deseados", icon: "wanted", match: (path) => path.startsWith("/deseados") },
-  { href: "/intercambio", label: "Intercambio", icon: "trade", match: (path) => path.startsWith("/intercambio") },
-  { href: "/mazos", label: "Mazos", icon: "decks", match: (path) => path.startsWith("/mazos") },
+  { key: "", label: "Catálogo", icon: "catalog", public: true },
+  { key: "jugadores", label: "Jugadores", icon: "players", public: true },
+  { key: "biblioteca", label: "Biblioteca", icon: "library", public: false },
+  { key: "progreso", label: "Progreso", icon: "progress", public: false },
+  { key: "deseados", label: "Deseados", icon: "wanted", public: false },
+  { key: "intercambio", label: "Intercambio", icon: "trade", public: false },
+  { key: "mazos", label: "Mazos", icon: "decks", public: false },
 ];
+
+function sectionLinks(prefix: string) {
+  return SECTIONS.map((section) => {
+    const href = section.key ? `${prefix}/${section.key}` : prefix || "/";
+    return {
+      ...section,
+      href,
+      match: (path: string) =>
+        section.key
+          ? path === href || path.startsWith(`${href}/`)
+          : prefix
+            ? path === prefix || path.startsWith(`${prefix}/cartas`)
+            : path === "/" || path.startsWith("/products"),
+    };
+  });
+}
 
 export function Sidebar({
   user,
@@ -31,6 +48,8 @@ export function Sidebar({
   open: boolean;
   onClose: () => void;
 }) {
+  const riftbound = riftboundPath(pathname);
+  const links = sectionLinks(riftbound ? "/riftbound" : "");
 
   return (
     <aside
@@ -38,7 +57,7 @@ export function Sidebar({
       className={`${open ? "max-md:translate-x-0" : "max-md:-translate-x-full"} fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-stone-200 bg-[#f6f3ee] px-3 py-4 transition-transform md:sticky md:top-0 md:z-auto md:h-screen md:w-full`}
     >
       <div className="flex items-center justify-between px-2">
-        <Link href="/" className="block min-w-0 px-1" onClick={onClose}>
+        <Link href={riftbound ? "/riftbound" : "/"} className="block min-w-0 px-1" onClick={onClose}>
           <Image
             src="/logo-mark.png"
             alt="TCGlib"
@@ -63,19 +82,32 @@ export function Sidebar({
       <Link
         href="/"
         onClick={onClose}
-        className="mt-2 flex h-11 items-center gap-2 rounded-xl bg-stone-900 px-3 text-sm font-medium text-white"
+        className={`mt-2 flex h-11 items-center gap-2 rounded-xl px-3 text-sm font-medium ${
+          riftbound
+            ? "text-stone-700"
+            : "bg-stone-900 text-white"
+        }`}
       >
         <span className="size-2.5 rounded-full bg-rose-400" />
         One Piece
       </Link>
+      <Link
+        href="/riftbound"
+        onClick={onClose}
+        className={`mt-1 flex h-11 items-center gap-2 rounded-xl px-3 text-sm font-medium ${
+          riftbound
+            ? "bg-stone-900 text-white"
+            : "text-stone-700"
+        }`}
+      >
+        <span className="size-2.5 rounded-full bg-sky-500" />
+        Riftbound
+      </Link>
 
-      <nav aria-label="One Piece" className="mt-3 flex flex-col gap-1">
-        {LINKS.map((link) => {
+      <nav aria-label={riftbound ? "Riftbound" : "One Piece"} className="mt-3 flex flex-col gap-1">
+        {links.map((link) => {
           const current = pathname ? link.match(pathname) : false;
-          const href =
-            user || link.href === "/" || link.href === "/jugadores"
-              ? link.href
-              : `/entrar?return=${encodeURIComponent(link.href)}`;
+          const href = user || link.public ? link.href : `/entrar?return=${encodeURIComponent(link.href)}`;
           return (
             <Link
               key={link.href}
@@ -110,7 +142,11 @@ export function Sidebar({
 
       {user ? (
         <div className="mt-auto pt-6">
-          <SharePanel enabled={user.shareEnabled} slug={user.publicSlug} />
+          <SharePanel
+            enabled={user.shareEnabled}
+            slug={user.publicSlug}
+            game={riftbound ? "riftbound" : "one-piece"}
+          />
         </div>
       ) : null}
     </aside>

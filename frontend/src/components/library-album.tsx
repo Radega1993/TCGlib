@@ -7,9 +7,11 @@ import { LibraryEntry } from "@/lib/types";
 export function LibraryAlbum({
   entries,
   returnTo,
+  productBase = "/products",
 }: {
   entries: LibraryEntry[];
   returnTo: string;
+  productBase?: string;
 }) {
   return (
     <ul className="grid grid-cols-3 gap-2 lg:grid-cols-4">
@@ -20,7 +22,7 @@ export function LibraryAlbum({
         return (
           <li key={entry.product.externalId}>
             <Link
-              href={productHref(entry.product.externalId, returnTo)}
+              href={productHref(entry.product.externalId, returnTo, productBase)}
               aria-label={`${entry.product.name}, ${copies}${trade}`}
               className="relative block overflow-hidden rounded-xl bg-stone-100 ring-1 ring-stone-200"
             >

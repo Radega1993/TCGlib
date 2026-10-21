@@ -61,7 +61,7 @@ export class ProductsService {
     return { data };
   }
 
-  async suggest(q: string, limit = 8) {
+  async suggest(q: string, limit = 8, tcgSlug = ONE_PIECE_SLUG) {
     const term = q.trim();
     if (term.length < 2) {
       return { data: [] };
@@ -71,7 +71,7 @@ export class ProductsService {
     const data = await this.productModel.aggregate([
       {
         $match: {
-          tcgSlug: ONE_PIECE_SLUG,
+          tcgSlug,
           type: 'card',
           $or: [
             { name: { $regex: pattern, $options: 'i' } },
@@ -360,9 +360,18 @@ export class ProductsService {
     });
   }
 
-  progressCards() {
+  cardIdsForTcg(ids: number[], tcgSlug: string) {
+    if (ids.length === 0) return Promise.resolve([]);
     return this.productModel
-      .find({ tcgSlug: ONE_PIECE_SLUG, type: 'card' })
+      .find({ externalId: { $in: ids }, tcgSlug, type: 'card' })
+      .select('externalId')
+      .lean()
+      .then((rows) => rows.map((row) => row.externalId));
+  }
+
+  progressCards(tcgSlug = ONE_PIECE_SLUG) {
+    return this.productModel
+      .find({ tcgSlug, type: 'card' })
       .select({
         externalId: 1,
         name: 1,

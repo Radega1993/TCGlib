@@ -27,14 +27,15 @@ export class PlayersService {
     const requested = query.page ?? 1;
     const term = query.q?.trim().slice(0, 40);
     const match = publicFilter(term);
-    const total = await this.count(match, !term);
+    const tcg = gameOf(query.tcg);
+    const total = await this.count(match, !term, tcg);
     const pages = Math.max(1, Math.ceil(total / limit));
     const page = Math.min(requested, pages);
     const rows = total
       ? await this.users
           .aggregate<PlayerRow>([
             { $match: match },
-            ...rankedStages(!term),
+            ...rankedStages(!term, tcg),
             { $sort: { cards: -1, activeMs: -1, lastSeenAt: -1, name: 1 } },
             { $skip: (page - 1) * limit },
             { $limit: limit },
@@ -73,17 +74,25 @@ export class PlayersService {
     };
   }
 
-  private async count(match: Record<string, unknown>, requireActivity: boolean) {
+  private async count(
+    match: Record<string, unknown>,
+    requireActivity: boolean,
+    tcg: string,
+  ) {
     const [row] = await this.users.aggregate<{ n: number }>([
       { $match: match },
-      ...rankedStages(requireActivity),
+      ...rankedStages(requireActivity, tcg),
       { $count: 'n' },
     ]);
     return row?.n ?? 0;
   }
 }
 
-function rankedStages(requireActivity: boolean): PipelineStage[] {
+function gameOf(value?: string) {
+  return value === 'riftbound' ? 'riftbound' : 'one-piece';
+}
+
+function rankedStages(requireActivity: boolean, tcg: string): PipelineStage[] {
   const stages: PipelineStage[] = [
     {
       $lookup: {
@@ -91,6 +100,25 @@ function rankedStages(requireActivity: boolean): PipelineStage[] {
         let: { id: '$_id' },
         pipeline: [
           { $match: { $expr: { $eq: ['$userId', '$$id'] } } },
+          {
+            $lookup: {
+              from: 'products',
+              localField: 'productExternalId',
+              foreignField: 'externalId',
+              pipeline: [{ $project: { tcgSlug: 1, type: 1 } }],
+              as: 'card',
+            },
+          },
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: [{ $first: '$card.tcgSlug' }, tcg] },
+                  { $eq: [{ $first: '$card.type' }, 'card'] },
+                ],
+              },
+            },
+          },
           {
             $group: {
               _id: null,

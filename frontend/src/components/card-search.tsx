@@ -12,12 +12,20 @@ export function CardSearch({
   onTextChange,
   onSearch,
   suggestionHref,
+  tcg = "one-piece",
+  catalogBase = "/",
+  productBase = "/products",
+  placeholder = "Luffy, OP03-070…",
 }: {
   query: CatalogQuery;
   text: string;
   onTextChange: (value: string) => void;
   onSearch: () => void;
   suggestionHref?: (suggestion: CardSuggestion) => string;
+  tcg?: string;
+  catalogBase?: string;
+  productBase?: string;
+  placeholder?: string;
 }) {
   const router = useRouter();
   const listId = useId();
@@ -47,7 +55,7 @@ export function CardSearch({
       setLoading(true);
       try {
         const response = await fetch(
-          `/api/suggest?q=${encodeURIComponent(term)}`,
+          `/api/suggest?q=${encodeURIComponent(term)}&tcg=${encodeURIComponent(tcg)}`,
           { signal: controller.signal },
         );
         const body = response.ok
@@ -66,7 +74,7 @@ export function CardSearch({
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [open, term]);
+  }, [open, term, tcg]);
 
   useEffect(() => {
     if (active < 0) return;
@@ -77,12 +85,12 @@ export function CardSearch({
   }, [active, listId, resultKey]);
 
   const showList = open && term.length >= 2;
-  const returnTo = catalogHref(query);
+  const returnTo = catalogHref(query, query.page, catalogBase);
 
   function destination(suggestion: CardSuggestion) {
     return suggestionHref
       ? suggestionHref(suggestion)
-      : productHref(suggestion.externalId, returnTo);
+      : productHref(suggestion.externalId, returnTo, productBase);
   }
 
   function openCard(suggestion: CardSuggestion) {
@@ -117,7 +125,7 @@ export function CardSearch({
               : undefined
           }
           value={text}
-          placeholder="Luffy, OP03-070…"
+          placeholder={placeholder}
           autoComplete="off"
           autoCorrect="off"
           spellCheck={false}

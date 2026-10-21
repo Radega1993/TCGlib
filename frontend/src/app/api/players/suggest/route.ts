@@ -7,8 +7,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ data: [] });
   }
 
+  const tcg = request.nextUrl.searchParams.get("tcg") === "riftbound" ? "riftbound" : "";
   const response = await fetch(
-    `${serverApiUrl()}/api/players?q=${encodeURIComponent(q)}&limit=5`,
+    `${serverApiUrl()}/api/players?q=${encodeURIComponent(q)}&limit=5${tcg ? "&tcg=riftbound" : ""}`,
     { cache: "no-store" },
   ).catch(() => null);
   if (!response?.ok) return NextResponse.json({ data: [] });

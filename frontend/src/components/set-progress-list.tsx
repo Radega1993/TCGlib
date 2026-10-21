@@ -5,7 +5,17 @@ import { useState } from "react";
 import { formatCount, formatPercent } from "@/lib/format";
 import { SetProgress } from "@/lib/types";
 
-export function SetProgressList({ sets }: { sets: SetProgress[] }) {
+export function SetProgressList({
+  sets,
+  base = "",
+  placeholder = "OP01, Romance Dawn…",
+  emptyLabel = "Ningún set coincide con esta búsqueda.",
+}: {
+  sets: SetProgress[];
+  base?: string;
+  placeholder?: string;
+  emptyLabel?: string;
+}) {
   const [query, setQuery] = useState("");
   const needle = query.trim().toLocaleLowerCase("es");
   const visible = needle
@@ -20,13 +30,13 @@ export function SetProgressList({ sets }: { sets: SetProgress[] }) {
           id="set-search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="OP01, Romance Dawn…"
+          placeholder={placeholder}
           className="mt-1 h-11 w-full rounded-xl bg-white px-3 text-sm text-stone-950 ring-1 ring-stone-200"
         />
       </label>
       {visible.length === 0 ? (
         <p className="rounded-2xl bg-white px-4 py-8 text-center text-sm text-stone-700 ring-1 ring-stone-200">
-          Ningún set coincide con esta búsqueda.
+          {emptyLabel}
         </p>
       ) : (
         <>
@@ -34,7 +44,7 @@ export function SetProgressList({ sets }: { sets: SetProgress[] }) {
             {visible.map((set) => (
               <li key={set.externalId}>
                 <Link
-                  href={`/progreso/${set.externalId}`}
+                  href={`${base}/progreso/${set.externalId}`}
                   className="block rounded-2xl bg-white p-4 ring-1 ring-stone-200"
                 >
                   <SetHeading set={set} />
@@ -58,7 +68,7 @@ export function SetProgressList({ sets }: { sets: SetProgress[] }) {
                   <tr key={set.externalId} className="border-t border-stone-100">
                     <td className="px-4 py-3">
                       <Link
-                        href={`/progreso/${set.externalId}`}
+                        href={`${base}/progreso/${set.externalId}`}
                         className="font-medium text-stone-950"
                       >
                         {setLabel(set)}

@@ -23,13 +23,21 @@ export async function saveCollectionGoal(input: CollectionGoal) {
   return { ok: true as const };
 }
 
-export async function addMissingToWishlist(externalId: string) {
+export async function addMissingToWishlist(externalId: string, tcg = "one-piece") {
   if (!/^[a-z0-9-]{1,120}$/.test(externalId)) return { ok: false as const };
-  const response = await request(`/api/me/collection/sets/${externalId}/wishlist`, "POST");
+  const query = tcg === "riftbound" ? "?tcg=riftbound" : "";
+  const response = await request(
+    `/api/me/collection/sets/${externalId}/wishlist${query}`,
+    "POST",
+  );
   if (!response) return { ok: false as const };
   const body = (await response.json().catch(() => null)) as { data?: { added?: number } } | null;
   revalidatePath("/progreso", "layout");
   revalidatePath("/deseados", "page");
+  if (tcg === "riftbound") {
+    revalidatePath("/riftbound/progreso", "layout");
+    revalidatePath("/riftbound/deseados", "page");
+  }
   return { ok: true as const, added: body?.data?.added ?? 0 };
 }
 

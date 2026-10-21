@@ -216,6 +216,8 @@ export type AdminOverview = {
 export type AdminGame = {
   slug: string;
   name: string;
+  cards: number;
+  sets: number;
   sync: AdminOverview["sync"];
 };
 

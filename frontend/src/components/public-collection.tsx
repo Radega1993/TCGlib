@@ -6,6 +6,7 @@ import { LibraryList } from "@/components/library-list";
 import { Pagination } from "@/components/pagination";
 import { activeFilterCount, parseShareQuery, shareHref } from "@/lib/catalog-query";
 import { collectionLabel, formatCount } from "@/lib/format";
+import { gameProfile, GameSlug } from "@/lib/games";
 import { getSharedCollection } from "@/lib/session";
 import { LibraryEntry, SharedCollection, ShareLayout, ShareTab } from "@/lib/types";
 
@@ -18,14 +19,17 @@ const TABS: { id: ShareTab; label: string }[] = [
 export async function PublicCollection({
   slug,
   searchParams,
+  game = "one-piece",
 }: {
   slug: string;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
+  game?: GameSlug;
 }) {
+  const profile = gameProfile(game);
   const query = parseShareQuery(await searchParams);
   let collection: Awaited<ReturnType<typeof getSharedCollection>>;
   try {
-    collection = await getSharedCollection(slug, query);
+    collection = await getSharedCollection(slug, query, profile.slug);
   } catch {
     return (
       <p className="rounded-2xl bg-white px-4 py-8 text-sm text-stone-700 ring-1 ring-rose-200">
@@ -37,7 +41,7 @@ export async function PublicCollection({
 
   const active = collection.tab;
   const view = query.view === "list" ? "list" : "album";
-  const back = shareHref(slug, { ...query, tab: active, view });
+  const back = shareHref(slug, { ...query, tab: active, view }, profile.slug);
   const filtered = activeFilterCount(query) > 0;
   const page = publicPage(collection);
 
@@ -54,7 +58,7 @@ export async function PublicCollection({
           />
         ) : null}
         <div>
-          <p className="text-sm text-stone-500">Colección pública · One Piece</p>
+          <p className="text-sm text-stone-500">Colección pública · {profile.name}</p>
           <h1 className="text-2xl font-semibold tracking-tight text-stone-950">
             {collection.name}
           </h1>
@@ -67,7 +71,7 @@ export async function PublicCollection({
           return (
             <Link
               key={tab.id}
-              href={shareHref(slug, { ...query, tab: tab.id, view, page: 1 })}
+              href={shareHref(slug, { ...query, tab: tab.id, view, page: 1 }, profile.slug)}
               aria-current={current ? "page" : undefined}
               className={`inline-flex h-11 flex-1 items-center justify-center rounded-xl px-2 text-sm font-medium ${
                 current
@@ -86,6 +90,18 @@ export async function PublicCollection({
         facets={collection.facets}
         query={query}
         share={{ slug, tab: active, view }}
+        shareGame={profile.slug}
+        tcg={profile.slug}
+        catalogBase={profile.base || "/"}
+        productBase={profile.productBase}
+        searchPlaceholder={profile.searchPlaceholder}
+        colorLabelText={profile.colorLabelText}
+        attributeLabelText={profile.attributeLabelText}
+        costLabelText={profile.costLabelText}
+        setLabelText={profile.setLabelText}
+        setPlaceholder={profile.setPlaceholder}
+        editionSortLabel={profile.editionSortLabel}
+        colorSortLabel={profile.colorSortLabel}
       />
       <PublicList
         title={publicTitle(active)}
@@ -104,9 +120,12 @@ export async function PublicCollection({
             ? (quantity) => `${quantity} ${quantity === 1 ? "disponible" : "disponibles"}`
             : undefined
         }
-        hrefFor={(nextPage) => shareHref(slug, { ...query, tab: active, view, page: nextPage })}
+        hrefFor={(nextPage) =>
+          shareHref(slug, { ...query, tab: active, view, page: nextPage }, profile.slug)
+        }
         view={view}
-        viewHref={(next) => shareHref(slug, { ...query, tab: active, view: next })}
+        viewHref={(next) => shareHref(slug, { ...query, tab: active, view: next }, profile.slug)}
+        productBase={profile.productBase}
       />
     </div>
   );
@@ -156,6 +175,7 @@ function PublicList({
   copiesLabel,
   view,
   viewHref,
+  productBase,
 }: {
   title: string;
   list: "owned" | "wanted";
@@ -172,6 +192,7 @@ function PublicList({
   copiesLabel?: (quantity: number) => string;
   view: ShareLayout;
   viewHref: (view: ShareLayout) => string;
+  productBase: string;
 }) {
   return (
     <section className="flex flex-col gap-3">
@@ -190,7 +211,7 @@ function PublicList({
           {filtered ? "Ninguna carta coincide con estos filtros." : empty}
         </p>
       ) : view === "album" ? (
-        <LibraryAlbum entries={entries} returnTo={returnTo} />
+        <LibraryAlbum entries={entries} returnTo={returnTo} productBase={productBase} />
       ) : (
         <LibraryList
           entries={entries}
@@ -198,6 +219,7 @@ function PublicList({
           readOnly={true}
           returnTo={returnTo}
           copiesLabel={copiesLabel}
+          productBase={productBase}
         />
       )}
       {total > limit ? (

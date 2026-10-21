@@ -36,6 +36,11 @@ export class UpdateCollectionGoalDto {
 
 export class CollectionSetQueryDto {
   @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  tcg?: string;
+
+  @IsOptional()
   @IsIn(COLLECTION_VIEWS)
   view?: CollectionView;
 

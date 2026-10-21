@@ -75,6 +75,11 @@ function revalidateLibrary(externalId: number) {
   revalidatePath("/intercambio", "page");
   revalidatePath("/progreso", "layout");
   revalidatePath(`/products/${externalId}`, "page");
+  revalidatePath("/riftbound/biblioteca", "page");
+  revalidatePath("/riftbound/deseados", "page");
+  revalidatePath("/riftbound/intercambio", "page");
+  revalidatePath("/riftbound/progreso", "layout");
+  revalidatePath(`/riftbound/cartas/${externalId}`, "page");
 }
 
 export async function setShareEnabled(enabled: boolean) {

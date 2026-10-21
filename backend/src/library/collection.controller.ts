@@ -27,8 +27,11 @@ export class CollectionController {
   constructor(private readonly collection: CollectionService) {}
 
   @Get()
-  overview(@CurrentUser() user: PublicUser) {
-    return this.collection.overview(user.id).then((data) => ({ data }));
+  overview(
+    @CurrentUser() user: PublicUser,
+    @Query('tcg') tcg?: string,
+  ) {
+    return this.collection.overview(user.id, tcg).then((data) => ({ data }));
   }
 
   @Put('goal')
@@ -51,6 +54,7 @@ export class CollectionController {
         setId(externalId),
         query.view ?? 'todas',
         query.page ?? 1,
+        query.tcg,
       )
       .then((data) => ({ data }));
   }
@@ -60,9 +64,10 @@ export class CollectionController {
   addMissing(
     @CurrentUser() user: PublicUser,
     @Param('externalId') externalId: string,
+    @Query('tcg') tcg?: string,
   ) {
     return this.collection
-      .addMissing(user.id, setId(externalId))
+      .addMissing(user.id, setId(externalId), tcg)
       .then((data) => ({ data }));
   }
 }

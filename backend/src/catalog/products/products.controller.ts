@@ -14,7 +14,11 @@ export class ProductsController {
 
   @Get('suggest')
   suggest(@Query() query: SuggestProductsQueryDto) {
-    return this.productsService.suggest(query.q ?? '', query.limit ?? 8);
+    return this.productsService.suggest(
+      query.q ?? '',
+      query.limit ?? 8,
+      query.tcg,
+    );
   }
 
   @Get(':externalId')

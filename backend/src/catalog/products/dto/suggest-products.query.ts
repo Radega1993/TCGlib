@@ -29,4 +29,9 @@ export class SuggestProductsQueryDto {
   @Min(1)
   @Max(12)
   limit?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  tcg?: string;
 }

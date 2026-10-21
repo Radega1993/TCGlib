@@ -74,4 +74,46 @@ describe('mapProduct', () => {
     });
     expect(record.markets?.tcgplayer?.prices?.market).toBe(0.25);
   });
+
+  it('maps Riftbound domains and card types without using One Piece fields', () => {
+    const record = mapProduct(
+      {
+        ...luffy,
+        _id: 21,
+        name: 'Abandon',
+        code: '131/219',
+        tcg: { _id: 'riftbound', name: 'Riftbound' },
+        set: {
+          _id: 'riftbound-unleashed',
+          name: 'Unleashed',
+          slug: 'unleashed',
+          tcg: 'riftbound',
+          code: 'UNL',
+        },
+        attributes: {
+          Rarity: 'Uncommon',
+          Number: '131/219',
+          'Energy Cost': '2',
+          Might: '0',
+          'Card Type': 'Spell',
+          Domain: 'Chaos',
+          Tag: 'Jayce',
+          Artist: 'Kudos Productions',
+        },
+      },
+      syncedAt,
+    );
+
+    expect(record).toMatchObject({
+      tcgSlug: 'riftbound',
+      rarity: 'Uncommon',
+      color: 'Chaos',
+      cardType: 'Spell',
+      cost: '2',
+      power: '0',
+      cardAttribute: 'Jayce',
+      artist: 'Kudos Productions',
+    });
+    expect(record.life).toBeUndefined();
+  });
 });

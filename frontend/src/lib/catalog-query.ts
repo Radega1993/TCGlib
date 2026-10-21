@@ -28,10 +28,11 @@ export function parseCatalogQuery(
   };
 }
 
-export function catalogHref(query: CatalogQuery, page = query.page) {
+export function catalogHref(query: CatalogQuery, page = query.page, base = "/") {
   const params = filterParams(query, page);
   const search = params.toString();
-  return search ? `/?${search}` : "/";
+  if (!search) return base;
+  return base === "/" ? `/?${search}` : `${base}?${search}`;
 }
 
 export function parseShareQuery(
@@ -44,24 +45,39 @@ export function parseShareQuery(
   };
 }
 
-export function shareHref(slug: string, query: ShareQuery) {
+export function shareHref(
+  slug: string,
+  query: ShareQuery,
+  game: "one-piece" | "riftbound" = "one-piece",
+) {
   const params = filterParams(query, query.page);
   if (query.tab) params.set("tab", query.tab);
   if (query.view === "list") params.set("vista", "lista");
-  const search = params.toString();
-  return search ? `/u/${slug}?${search}` : `/u/${slug}`;
-}
-
-export function libraryHref(list: LibraryList, query: CatalogQuery, page = query.page) {
-  const params = filterParams(query, page);
-  const path = list === "wanted" ? "/deseados" : "/biblioteca";
+  const path = game === "riftbound" ? `/u/${slug}/riftbound` : `/u/${slug}`;
   const search = params.toString();
   return search ? `${path}?${search}` : path;
 }
 
-export function libraryApiQuery(list: LibraryList, query?: CatalogQuery) {
+export function libraryHref(
+  list: LibraryList,
+  query: CatalogQuery,
+  page = query.page,
+  base = "",
+) {
+  const params = filterParams(query, page);
+  const path = `${base}${list === "wanted" ? "/deseados" : "/biblioteca"}`;
+  const search = params.toString();
+  return search ? `${path}?${search}` : path;
+}
+
+export function libraryApiQuery(
+  list: LibraryList,
+  query?: CatalogQuery,
+  tcg = "one-piece",
+) {
   const params = query ? filterParams(query, query.page) : new URLSearchParams();
   params.set("list", list);
+  if (tcg === "riftbound") params.set("tcg", tcg);
   return params;
 }
 
@@ -119,13 +135,12 @@ export function activeFilterCount(query: CatalogQuery) {
   );
 }
 
-export function productHref(externalId: number, returnTo: string) {
+export function productHref(externalId: number, returnTo: string, productBase = "/products") {
   const params = new URLSearchParams();
-  if (returnTo !== "/") params.set("return", returnTo);
+  if (returnTo !== "/" && returnTo !== productBase) params.set("return", returnTo);
   const search = params.toString();
-  return search
-    ? `/products/${externalId}?${search}`
-    : `/products/${externalId}`;
+  const path = `${productBase}/${externalId}`;
+  return search ? `${path}?${search}` : path;
 }
 
 export function safeNextPath(value: string | undefined, fallback = "/biblioteca") {
@@ -136,8 +151,8 @@ export function safeNextPath(value: string | undefined, fallback = "/biblioteca"
   return value;
 }
 
-export function safeReturn(value: string | undefined) {
-  return safeNextPath(value, "/");
+export function safeReturn(value: string | undefined, fallback = "/") {
+  return safeNextPath(value, fallback);
 }
 
 function setList(params: URLSearchParams, key: string, values: string[]) {

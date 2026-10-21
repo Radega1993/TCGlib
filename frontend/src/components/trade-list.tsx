@@ -12,19 +12,39 @@ import { LibraryEntry } from "@/lib/types";
 
 export function TradeList({
   entries,
+  returnTo = "/intercambio",
+  productBase = "/products",
 }: {
   entries: { entry: LibraryEntry; wanted: number }[];
+  returnTo?: string;
+  productBase?: string;
 }) {
   return (
     <ul className="flex flex-col gap-3">
       {entries.map(({ entry, wanted }) => (
-        <TradeRow key={entry.product.externalId} entry={entry} wanted={wanted} />
+        <TradeRow
+          key={entry.product.externalId}
+          entry={entry}
+          wanted={wanted}
+          returnTo={returnTo}
+          productBase={productBase}
+        />
       ))}
     </ul>
   );
 }
 
-function TradeRow({ entry, wanted }: { entry: LibraryEntry; wanted: number }) {
+function TradeRow({
+  entry,
+  wanted,
+  returnTo,
+  productBase,
+}: {
+  entry: LibraryEntry;
+  wanted: number;
+  returnTo: string;
+  productBase: string;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [value, setValue] = useState(entry.forTrade ?? 0);
@@ -36,7 +56,7 @@ function TradeRow({ entry, wanted }: { entry: LibraryEntry; wanted: number }) {
   }
 
   const reserved = Math.max(0, entry.quantity - value);
-  const href = productHref(entry.product.externalId, "/intercambio");
+  const href = productHref(entry.product.externalId, returnTo, productBase);
 
   function change(next: number) {
     const previous = value;

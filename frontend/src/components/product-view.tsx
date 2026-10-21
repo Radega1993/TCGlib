@@ -15,15 +15,17 @@ import {
 export async function ProductView({
   params,
   searchParams,
+  catalogHome = "/",
 }: {
   params: Promise<{ externalId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
+  catalogHome?: string;
 }) {
   const [{ externalId }, query] = await Promise.all([params, searchParams]);
   const id = Number(externalId);
   if (!Number.isInteger(id) || id <= 0) notFound();
 
-  const returnTo = safeReturn(first(query.return));
+  const returnTo = safeReturn(first(query.return), catalogHome);
   let product;
   try {
     product = (await getProduct(id)).data;
@@ -43,6 +45,7 @@ export async function ProductView({
     ([key]) => key !== "Description",
   );
   const tcgplayer = product.markets?.tcgplayer;
+  const riftbound = product.tcgSlug === "riftbound";
 
   return (
     <article className="flex flex-col gap-6">
@@ -91,14 +94,14 @@ export async function ProductView({
             <Field label="Código" value={product.code} />
             <Field label="Rareza" value={product.rarity} />
             <Field label="Tipo de carta" value={product.cardType} />
-            <Field label="Coste" value={product.cost} />
-            <Field label="Poder" value={product.power} />
+            <Field label={riftbound ? "Energía" : "Coste"} value={product.cost} />
+            <Field label={riftbound ? "Fuerza" : "Poder"} value={product.power} />
             <Field label="Vida" value={product.life} />
-            <Field label="Atributo" value={product.cardAttribute} />
+            <Field label={riftbound ? "Etiqueta" : "Atributo"} value={product.cardAttribute} />
             <Field label="Artista" value={product.artist} />
             <div className="col-span-2">
               <dt className="text-xs font-medium uppercase tracking-wide text-stone-500">
-                Color
+                {riftbound ? "Dominio" : "Color"}
               </dt>
               <dd className="mt-1 flex flex-wrap gap-2">
                 {splitColors(product.color).length === 0 ? (

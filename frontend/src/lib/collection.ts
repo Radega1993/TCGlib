@@ -17,18 +17,21 @@ export function collectionPage(value: string | undefined) {
   return Number.isInteger(page) && page > 0 ? page : 1;
 }
 
-export async function getCollectionOverview() {
-  return readCollection<CollectionOverview>("/api/me/collection");
+export async function getCollectionOverview(tcg = "one-piece") {
+  const path = tcg === "riftbound" ? "/api/me/collection?tcg=riftbound" : "/api/me/collection";
+  return readCollection<CollectionOverview>(path);
 }
 
 export async function getCollectionSet(
   externalId: string,
   view: CollectionView,
   page: number,
+  tcg = "one-piece",
 ) {
   const params = new URLSearchParams();
   if (view !== "todas") params.set("view", view);
   if (page > 1) params.set("page", String(page));
+  if (tcg === "riftbound") params.set("tcg", tcg);
   const search = params.toString();
   const path = `/api/me/collection/sets/${encodeURIComponent(externalId)}${search ? `?${search}` : ""}`;
   const token = await readSessionToken();

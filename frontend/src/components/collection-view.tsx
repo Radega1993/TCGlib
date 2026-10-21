@@ -7,24 +7,28 @@ import { LibraryLayout, LibraryViewToggle } from "@/components/library-view-togg
 import { Pagination } from "@/components/pagination";
 import { activeFilterCount, libraryHref, parseCatalogQuery } from "@/lib/catalog-query";
 import { collectionLabel, formatCount } from "@/lib/format";
+import { gameProfile, GameSlug } from "@/lib/games";
 import { getCurrentUser, getLibrary } from "@/lib/session";
 import { LibraryList as LibraryName } from "@/lib/types";
 
 export async function CollectionView({
   list,
   searchParams,
+  game = "one-piece",
 }: {
   list: LibraryName;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
+  game?: GameSlug;
 }) {
+  const profile = gameProfile(game);
   const query = parseCatalogQuery(await searchParams);
-  const returnTo = libraryHref(list, query);
+  const returnTo = libraryHref(list, query, query.page, profile.base);
   const user = await getCurrentUser();
   if (!user) redirect(`/entrar?return=${encodeURIComponent(returnTo)}`);
 
   let library: Awaited<ReturnType<typeof getLibrary>>;
   try {
-    library = await getLibrary(list, query);
+    library = await getLibrary(list, query, profile.slug);
   } catch {
     return (
       <p className="rounded-2xl bg-white px-4 py-8 text-sm text-stone-700 ring-1 ring-rose-200">
@@ -44,7 +48,7 @@ export async function CollectionView({
     <div className="flex flex-col gap-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm text-stone-500">One Piece</p>
+          <p className="text-sm text-stone-500">{profile.name}</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight text-stone-950">
             {title}
           </h1>
@@ -60,7 +64,24 @@ export async function CollectionView({
           </p>
         ) : null}
       </div>
-      <Filters sets={library.sets} facets={library.facets} query={query} list={list} />
+      <Filters
+        sets={library.sets}
+        facets={library.facets}
+        query={query}
+        list={list}
+        libraryBase={profile.base}
+        tcg={profile.slug}
+        catalogBase={profile.base || "/"}
+        productBase={profile.productBase}
+        searchPlaceholder={profile.searchPlaceholder}
+        colorLabelText={profile.colorLabelText}
+        attributeLabelText={profile.attributeLabelText}
+        costLabelText={profile.costLabelText}
+        setLabelText={profile.setLabelText}
+        setPlaceholder={profile.setPlaceholder}
+        editionSortLabel={profile.editionSortLabel}
+        colorSortLabel={profile.colorSortLabel}
+      />
       {filtered ? (
         <p className="text-sm text-stone-700">
           {collectionLabel(library.total, library.copies)}
@@ -73,19 +94,31 @@ export async function CollectionView({
             Ninguna carta coincide con estos filtros.
           </p>
         ) : (
-          <LibraryList entries={library.data} list={list} returnTo={returnTo} />
+          <LibraryList
+            entries={library.data}
+            list={list}
+            returnTo={returnTo}
+            catalogHref={profile.base || "/"}
+            productBase={profile.productBase}
+          />
         )
       ) : layout === "album" ? (
-        <LibraryAlbum entries={library.data} returnTo={returnTo} />
+        <LibraryAlbum entries={library.data} returnTo={returnTo} productBase={profile.productBase} />
       ) : (
-        <LibraryList entries={library.data} list={list} returnTo={returnTo} />
+        <LibraryList
+          entries={library.data}
+          list={list}
+          returnTo={returnTo}
+          catalogHref={profile.base || "/"}
+          productBase={profile.productBase}
+        />
       )}
       {library.total > library.limit ? (
         <Pagination
           page={library.page}
           total={library.total}
           limit={library.limit}
-          hrefFor={(page) => libraryHref(list, query, page)}
+          hrefFor={(page) => libraryHref(list, query, page, profile.base)}
           label={`Paginación de ${title.toLowerCase()}`}
         />
       ) : null}

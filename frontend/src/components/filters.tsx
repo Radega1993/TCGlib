@@ -38,12 +38,38 @@ export function Filters({
   query,
   share,
   list,
+  libraryBase = "",
+  shareGame = "one-piece",
+  tcg = "one-piece",
+  catalogBase = "/",
+  productBase = "/products",
+  searchPlaceholder = "Luffy, OP03-070…",
+  colorLabelText = "Color",
+  attributeLabelText = "Atributo",
+  costLabelText = "Coste",
+  setLabelText = "Set",
+  setPlaceholder = "Todos los sets",
+  editionSortLabel = "Ediciones",
+  colorSortLabel = "Colores",
 }: {
   sets: CardSet[];
   facets: CatalogFacets;
   query: CatalogQuery;
   share?: { slug: string; tab: ShareTab; view?: ShareLayout };
   list?: LibraryList;
+  libraryBase?: string;
+  shareGame?: "one-piece" | "riftbound";
+  tcg?: string;
+  catalogBase?: string;
+  productBase?: string;
+  searchPlaceholder?: string;
+  colorLabelText?: string;
+  attributeLabelText?: string;
+  costLabelText?: string;
+  setLabelText?: string;
+  setPlaceholder?: string;
+  editionSortLabel?: string;
+  colorSortLabel?: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -65,9 +91,11 @@ export function Filters({
     (query.set ? 1 : 0);
 
   function destination(next: CatalogQuery) {
-    if (share) return shareHref(share.slug, { ...next, tab: share.tab, view: share.view });
-    if (list) return libraryHref(list, next);
-    return catalogHref(next);
+    if (share) {
+      return shareHref(share.slug, { ...next, tab: share.tab, view: share.view }, shareGame);
+    }
+    if (list) return libraryHref(list, next, next.page, libraryBase);
+    return catalogHref(next, next.page, catalogBase);
   }
 
   function apply(patch: Partial<CatalogQuery> = {}) {
@@ -109,6 +137,10 @@ export function Filters({
         text={text}
         onTextChange={setText}
         onSearch={() => apply()}
+        tcg={tcg}
+        catalogBase={catalogBase}
+        productBase={productBase}
+        placeholder={searchPlaceholder}
         suggestionHref={
           share || list
             ? (suggestion) =>
@@ -123,7 +155,14 @@ export function Filters({
       <div className="flex flex-col gap-2">
         <span className="text-xs font-medium uppercase tracking-wide text-stone-500">Orden</span>
         <div className="grid grid-cols-3 gap-2" role="group" aria-label="Orden">
-          {SORTS.map((option) => (
+          {SORTS.map((option) => {
+            const label =
+              option.id === "set"
+                ? editionSortLabel
+                : option.id === "color"
+                  ? colorSortLabel
+                  : option.label;
+            return (
             <button
               key={option.id}
               type="button"
@@ -135,9 +174,10 @@ export function Filters({
                   : "bg-stone-50 text-stone-800 ring-1 ring-stone-300"
               }`}
             >
-              {option.label}
+              {label}
             </button>
-          ))}
+            );
+          })}
         </div>
       </div>
       <button
@@ -169,7 +209,7 @@ export function Filters({
       </button>
       <div className={`${open ? "flex" : "hidden"} flex-col gap-4`}>
         {facets.color.length > 0 ? (
-        <FilterGroup label="Color" hint="incluye multicolor">
+        <FilterGroup label={colorLabelText} hint="incluye multicolor">
           {facets.color.map((color) => (
             <Chip
               key={color}
@@ -214,7 +254,7 @@ export function Filters({
         </FilterGroup>
         ) : null}
         {facets.attribute.length > 0 ? (
-        <FilterGroup label="Atributo">
+        <FilterGroup label={attributeLabelText}>
           {facets.attribute.map((attribute) => (
             <Chip
               key={attribute}
@@ -230,7 +270,7 @@ export function Filters({
         </FilterGroup>
         ) : null}
         {facets.cost.length > 0 ? (
-        <FilterGroup label="Coste">
+        <FilterGroup label={costLabelText}>
           {facets.cost.map((cost) => (
             <Chip
               key={cost}
@@ -246,14 +286,14 @@ export function Filters({
         {sets.length > 0 ? (
         <label className="block">
           <span className="mb-2 block text-xs font-medium uppercase tracking-wide text-stone-500">
-            Set
+            {setLabelText}
           </span>
           <select
             value={query.set ?? ""}
             onChange={(event) => apply({ set: event.target.value || undefined })}
             className="h-11 w-full rounded-xl border border-stone-300 bg-white px-3 text-base text-stone-900 outline-none ring-rose-700 focus:ring-2"
           >
-            <option value="">Todos los sets</option>
+            <option value="">{setPlaceholder}</option>
             {sets.map((set) => (
               <option key={set.externalId} value={set.externalId}>
                 {set.code ? `${set.code} · ${set.name}` : set.name}

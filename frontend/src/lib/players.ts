@@ -9,10 +9,11 @@ export type PublicPlayer = {
   wanted: number;
 };
 
-export async function getPlayers(query: { q?: string; page: number }) {
+export async function getPlayers(query: { q?: string; page: number; tcg?: string }) {
   const params = new URLSearchParams();
   if (query.q) params.set("q", query.q);
   if (query.page > 1) params.set("page", String(query.page));
+  if (query.tcg === "riftbound") params.set("tcg", "riftbound");
   const search = params.toString();
   const response = await fetch(`${serverApiUrl()}/api/players${search ? `?${search}` : ""}`, {
     cache: "no-store",

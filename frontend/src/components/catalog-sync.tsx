@@ -6,12 +6,16 @@ import { syncCatalog } from "@/lib/admin-actions";
 import { formatCount } from "@/lib/format";
 export function CatalogSync({
   games,
-  cards,
-  sets,
 }: {
-  games: { slug: string; name: string; status: "running" | "completed" | "failed" | null; detail: string; error?: string }[];
-  cards: number;
-  sets: number;
+  games: {
+    slug: string;
+    name: string;
+    cards: number;
+    sets: number;
+    status: "running" | "completed" | "failed" | null;
+    detail: string;
+    error?: string;
+  }[];
 }) {
   const router = useRouter();
   const [pendingSlug, setPendingSlug] = useState<string | null>(null);
@@ -53,7 +57,7 @@ export function CatalogSync({
               <div className="min-w-0">
                 <p className="text-sm font-medium text-stone-950">{game.name}</p>
                 <p className="mt-1 text-sm text-stone-600">
-                  {formatCount(cards)} cartas · {formatCount(sets)} sets
+                  {formatCount(game.cards)} cartas · {formatCount(game.sets)} colecciones
                 </p>
                 <p className="mt-1 text-sm text-stone-500">{game.detail}</p>
                 {game.status === "failed" && game.error ? (

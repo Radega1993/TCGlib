@@ -4,7 +4,17 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { resetShareLink } from "@/lib/library-actions";
 
-export function SharePanel({ enabled, slug }: { enabled: boolean; slug?: string }) {
+export function SharePanel({
+  enabled,
+  slug,
+  game = "one-piece",
+}: {
+  enabled: boolean;
+  slug?: string;
+  game?: "one-piece" | "riftbound";
+}) {
+  const path = slug ? (game === "riftbound" ? `/u/${slug}/riftbound` : `/u/${slug}`) : "";
+  const gameName = game === "riftbound" ? "Riftbound" : "One Piece";
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [copied, setCopied] = useState(false);
@@ -13,7 +23,7 @@ export function SharePanel({ enabled, slug }: { enabled: boolean; slug?: string 
     startTransition(async () => {
       const result = await action();
       if (!result.ok && result.error === "auth") {
-        router.push("/entrar?return=/biblioteca");
+        router.push(game === "riftbound" ? "/entrar?return=/riftbound/biblioteca" : "/entrar?return=/biblioteca");
         return;
       }
       router.refresh();
@@ -22,7 +32,7 @@ export function SharePanel({ enabled, slug }: { enabled: boolean; slug?: string 
 
   async function copy() {
     if (!slug) return;
-    await navigator.clipboard.writeText(`${window.location.origin}/u/${slug}`);
+    await navigator.clipboard.writeText(`${window.location.origin}${path}`);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 2000);
   }
@@ -35,9 +45,9 @@ export function SharePanel({ enabled, slug }: { enabled: boolean; slug?: string 
       {enabled && slug ? (
         <div className="mt-2 flex flex-col gap-3">
           <p className="text-xs leading-5 text-stone-500">
-            Apareces en Jugadores. Quien entre ve la biblioteca, el intercambio y los deseados. El email no se muestra.
+            Apareces en Jugadores. Este enlace enseña la biblioteca, el intercambio y los deseados de {gameName}. El otro juego tiene el suyo. El email no se muestra.
           </p>
-          <p className="truncate text-xs text-stone-500">/u/{slug}</p>
+          <p className="truncate text-xs text-stone-500">{path}</p>
           <div className="flex gap-2">
             <button
               type="button"

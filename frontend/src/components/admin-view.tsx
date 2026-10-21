@@ -59,12 +59,12 @@ export async function AdminView() {
         games={overview.games.map((game) => ({
           slug: game.slug,
           name: game.name,
+          cards: game.cards,
+          sets: game.sets,
           status: game.sync?.status ?? null,
           detail: syncDetail(game.sync),
           error: game.sync?.error,
         }))}
-        cards={overview.catalog.cards}
-        sets={overview.catalog.sets}
       />
       <SuggestedDecks
         total={overview.suggestedDecks.total}

@@ -5,8 +5,37 @@ import { Product } from '../schemas/product.schema';
 export const PRODUCT_SORTS = ['set', 'color', 'rarity'] as const;
 export type ProductSort = (typeof PRODUCT_SORTS)[number];
 
-const COLOR_ORDER = ['Red', 'Green', 'Blue', 'Purple', 'Black', 'Yellow'];
-const RARITY_ORDER = ['C', 'UC', 'R', 'SR', 'SEC', 'L', 'PR', 'TR', 'DON!!'];
+const COLOR_ORDER = [
+  'Red',
+  'Green',
+  'Blue',
+  'Purple',
+  'Black',
+  'Yellow',
+  'Fury',
+  'Calm',
+  'Mind',
+  'Body',
+  'Chaos',
+  'Order',
+];
+const RARITY_ORDER = [
+  'C',
+  'UC',
+  'R',
+  'SR',
+  'SEC',
+  'L',
+  'PR',
+  'TR',
+  'DON!!',
+  'Common',
+  'Uncommon',
+  'Rare',
+  'Epic',
+  'Legendary',
+  'Showcase',
+];
 
 export type ProductFilterInput = {
   tcg?: string;

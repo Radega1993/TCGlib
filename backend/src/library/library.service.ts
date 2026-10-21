@@ -4,7 +4,6 @@ import { Model, Types } from 'mongoose';
 import { ProductFilterInput } from '../catalog/products/product-filter';
 import { ProductsService } from '../catalog/products/products.service';
 import { Product } from '../catalog/schemas/product.schema';
-import { ListProductsQueryDto } from '../catalog/products/dto/list-products.query';
 import { ListLibraryQueryDto } from './dto/list-library.query';
 import {
   ShareCollectionQueryDto,
@@ -40,10 +39,9 @@ export class LibraryService {
     const list = query.list ?? 'owned';
     const owner = new Types.ObjectId(userId);
     const filter = toCardFilter(query);
-    const [rows, counts] = await Promise.all([
-      this.quantityRows(owner, list),
-      this.countLists(owner),
-    ]);
+    const lists = await this.listsFor(owner, gameOf(query.tcg));
+    const rows = list === 'wanted' ? lists.wanted : lists.owned;
+    const counts = lists.counts;
     const ids = rows.map((row) => row.productExternalId);
     const [facets, sets, page] = await Promise.all([
       this.products.facetsForExternalIds(ids),
@@ -67,11 +65,10 @@ export class LibraryService {
   private async listTrades(userId: string, query: ListLibraryQueryDto) {
     const owner = new Types.ObjectId(userId);
     const filter = toCardFilter(query);
-    const [ownedRows, wantedRows, counts] = await Promise.all([
-      this.quantityRows(owner, 'owned'),
-      this.quantityRows(owner, 'wanted'),
-      this.countLists(owner),
-    ]);
+    const lists = await this.listsFor(owner, gameOf(query.tcg));
+    const ownedRows = lists.owned;
+    const wantedRows = lists.wanted;
+    const counts = lists.counts;
     const tradeRows = ownedRows.flatMap((row) => {
       const available = availableCopies(row.quantity, row.forTrade ?? 0);
       if (available <= 0) return [];
@@ -114,7 +111,10 @@ export class LibraryService {
     query: ShareCollectionQueryDto,
     tab: ShareTab,
   ) {
-    const counts = await this.countLists(new Types.ObjectId(userId));
+    const counts = await this.countLists(
+      new Types.ObjectId(userId),
+      gameOf(query.tcg),
+    );
     const view =
       tab === 'intercambio'
         ? await this.publicTrades(userId, query)
@@ -152,7 +152,10 @@ export class LibraryService {
   async publicTrades(userId: string, query: ShareCollectionQueryDto) {
     const owner = new Types.ObjectId(userId);
     const filter = toCardFilter(query);
-    const ownedRows = await this.quantityRows(owner, 'owned');
+    const ownedRows = await this.gameRows(
+      await this.quantityRows(owner, 'owned'),
+      gameOf(query.tcg),
+    );
     const tradeRows = ownedRows.flatMap((row) => {
       const available = availableCopies(row.quantity, row.forTrade ?? 0);
       if (available <= 0) return [];
@@ -258,10 +261,9 @@ export class LibraryService {
   ) {
     const owner = new Types.ObjectId(userId);
     const filter = toCardFilter(query);
-    const [rows, counts] = await Promise.all([
-      this.quantityRows(owner, list),
-      this.countLists(owner),
-    ]);
+    const lists = await this.listsFor(owner, gameOf(query.tcg));
+    const rows = list === 'wanted' ? lists.wanted : lists.owned;
+    const counts = lists.counts;
     const ids = rows.map((row) => row.productExternalId);
     const [facets, sets, page] = await Promise.all([
       this.products.facetsForExternalIds(ids),
@@ -333,64 +335,70 @@ export class LibraryService {
     };
   }
 
-  private async countLists(userId: Types.ObjectId): Promise<LibraryCounts> {
-    const grouped = await this.entries.aggregate<{
-      _id: LibraryList;
-      cards: number;
-      copies: number;
-      tradeCards: number;
-      tradeCopies: number;
-    }>([
-      { $match: { userId } },
-      {
-        $group: {
-          _id: '$list',
-          cards: { $sum: 1 },
-          copies: { $sum: '$quantity' },
-          tradeCards: {
-            $sum: {
-              $cond: [
-                {
-                  $and: [
-                    { $eq: ['$list', 'owned'] },
-                    { $gt: [{ $ifNull: ['$forTrade', 0] }, 0] },
-                  ],
-                },
-                1,
-                0,
-              ],
-            },
-          },
-          tradeCopies: {
-            $sum: {
-              $cond: [
-                { $eq: ['$list', 'owned'] },
-                { $ifNull: ['$forTrade', 0] },
-                0,
-              ],
-            },
-          },
-        },
-      },
+  private async listsFor(userId: Types.ObjectId, tcg: string) {
+    const [owned, wanted] = await Promise.all([
+      this.quantityRows(userId, 'owned'),
+      this.quantityRows(userId, 'wanted'),
     ]);
-
-    const counts: LibraryCounts = {
-      owned: { cards: 0, copies: 0 },
-      wanted: { cards: 0, copies: 0 },
-      trades: { cards: 0, copies: 0 },
+    const [ownedRows, wantedRows] = await Promise.all([
+      this.gameRows(owned, tcg),
+      this.gameRows(wanted, tcg),
+    ]);
+    return {
+      owned: ownedRows,
+      wanted: wantedRows,
+      counts: countsFrom(ownedRows, wantedRows),
     };
-    for (const group of grouped) {
-      counts[group._id] = { cards: group.cards, copies: group.copies };
-      counts.trades.cards += group.tradeCards;
-      counts.trades.copies += group.tradeCopies;
-    }
-    return counts;
   }
+
+  private async gameRows(rows: QuantityRow[], tcg: string) {
+    const ids = await this.products.cardIdsForTcg(
+      rows.map((row) => row.productExternalId),
+      tcg,
+    );
+    const allowed = new Set(ids);
+    return rows.filter((row) => allowed.has(row.productExternalId));
+  }
+
+  private async countLists(
+    userId: Types.ObjectId,
+    tcg = 'one-piece',
+  ): Promise<LibraryCounts> {
+    const lists = await this.listsFor(userId, tcg);
+    return lists.counts;
+  }
+
+}
+
+function gameOf(value?: string) {
+  return value === 'riftbound' ? 'riftbound' : 'one-piece';
+}
+
+function countsFrom(owned: QuantityRow[], wanted: QuantityRow[]): LibraryCounts {
+  let ownedCopies = 0;
+  let tradeCards = 0;
+  let tradeCopies = 0;
+  for (const row of owned) {
+    ownedCopies += row.quantity;
+    const offered = row.forTrade ?? 0;
+    if (offered > 0) {
+      tradeCards += 1;
+      tradeCopies += offered;
+    }
+  }
+  return {
+    owned: { cards: owned.length, copies: ownedCopies },
+    wanted: {
+      cards: wanted.length,
+      copies: wanted.reduce((sum, row) => sum + row.quantity, 0),
+    },
+    trades: { cards: tradeCards, copies: tradeCopies },
+  };
 }
 
 function toCardFilter(query: ShareCollectionQueryDto): ProductFilterInput {
   return {
-    tcg: 'one-piece',
+    tcg: gameOf(query.tcg),
     type: 'card',
     set: query.set,
     q: query.q,

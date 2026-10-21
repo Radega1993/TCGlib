@@ -11,12 +11,16 @@ export function LibraryList({
   readOnly = false,
   returnTo = list === "wanted" ? "/deseados" : "/biblioteca",
   copiesLabel,
+  catalogHref = "/",
+  productBase = "/products",
 }: {
   entries: LibraryEntry[];
   list: LibraryList;
   readOnly?: boolean;
   returnTo?: string;
   copiesLabel?: (quantity: number) => string;
+  catalogHref?: string;
+  productBase?: string;
 }) {
   if (entries.length === 0) {
     return (
@@ -36,7 +40,7 @@ export function LibraryList({
               Abre una carta del catálogo y ajusta {list === "owned" ? "Tengo" : "Busco"}.
             </p>
             <Link
-              href="/"
+              href={catalogHref}
               className="mt-4 inline-flex h-11 items-center rounded-xl bg-stone-900 px-4 text-sm font-medium text-white"
             >
               Ir al catálogo
@@ -59,7 +63,7 @@ export function LibraryList({
             className="flex gap-3 rounded-2xl bg-white p-3 ring-1 ring-stone-200"
           >
             <Link
-              href={productHref(entry.product.externalId, returnTo)}
+              href={productHref(entry.product.externalId, returnTo, productBase)}
               className="relative block h-24 w-16 shrink-0 overflow-hidden rounded-lg bg-stone-100"
             >
               {entry.product.image ? (
@@ -75,7 +79,7 @@ export function LibraryList({
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <div>
                 <Link
-                  href={productHref(entry.product.externalId, returnTo)}
+                  href={productHref(entry.product.externalId, returnTo, productBase)}
                   className="line-clamp-2 text-sm font-medium text-stone-950"
                 >
                   {entry.product.name}

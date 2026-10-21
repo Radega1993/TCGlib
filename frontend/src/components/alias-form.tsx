@@ -10,11 +10,13 @@ export function AliasForm({
   shareEnabled,
   id = "public-alias",
   showLabel = false,
+  compact = false,
 }: {
   alias: string;
   shareEnabled: boolean;
   id?: string;
   showLabel?: boolean;
+  compact?: boolean;
 }) {
   const router = useRouter();
   const [value, setValue] = useState(alias);
@@ -34,9 +36,13 @@ export function AliasForm({
   }
 
   return (
-    <div className="min-w-0 flex-1 md:flex-none">
+    <div className={compact ? "min-w-0 flex-1" : "min-w-0 flex-1 md:flex-none"}>
       <form
-        className="flex min-w-0 items-center gap-2"
+        className={
+          compact
+            ? "grid w-full grid-cols-[minmax(0,1fr)_auto] gap-2"
+            : "flex min-w-0 flex-wrap items-center gap-2"
+        }
         onSubmit={(event) => {
           event.preventDefault();
           setError(null);
@@ -52,7 +58,7 @@ export function AliasForm({
         }}
       >
         <label
-          className={showLabel ? "shrink-0 text-xs font-medium text-stone-500" : "sr-only"}
+          className={showLabel && !compact ? "shrink-0 text-xs font-medium text-stone-500" : "sr-only"}
           htmlFor={id}
         >
           Nombre público
@@ -64,7 +70,11 @@ export function AliasForm({
           placeholder="Nombre público"
           title="Si lo dejas vacío, en el enlace público se ve tu nombre de Google."
           onChange={(event) => setValue(event.target.value)}
-          className="h-11 min-w-0 flex-1 rounded-xl bg-white px-3 text-sm text-stone-950 ring-1 ring-stone-300 outline-none md:w-44 md:flex-none lg:w-52"
+          className={
+            compact
+              ? "col-span-2 h-11 w-full min-w-0 rounded-xl bg-white px-3 text-sm text-stone-950 ring-1 ring-stone-300 outline-none"
+              : "h-11 min-w-0 flex-1 rounded-xl bg-white px-3 text-sm text-stone-950 ring-1 ring-stone-300 outline-none md:w-44 md:flex-none lg:w-52"
+          }
         />
         <button
           type="button"

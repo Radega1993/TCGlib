@@ -37,11 +37,15 @@ export async function getAuthStatus() {
   return { google: Boolean(body.data?.google), online: true };
 }
 
-export async function getLibrary(list: LibraryList, query?: CatalogQuery) {
+export async function getLibrary(
+  list: LibraryList,
+  query?: CatalogQuery,
+  tcg = "one-piece",
+) {
   const token = await readSessionToken();
   if (!token) return null;
   const response = await fetch(
-    `${serverApiUrl()}/api/me/library?${libraryApiQuery(list, query)}`,
+    `${serverApiUrl()}/api/me/library?${libraryApiQuery(list, query, tcg)}`,
     {
       headers: { authorization: `Bearer ${token}` },
       cache: "no-store",
@@ -62,12 +66,13 @@ export async function getLibrary(list: LibraryList, query?: CatalogQuery) {
   };
 }
 
-export async function getTrades(page = 1) {
+export async function getTrades(page = 1, tcg = "one-piece") {
   const token = await readSessionToken();
   if (!token) return null;
   const params = new URLSearchParams();
   params.set("list", "trade");
   if (page > 1) params.set("page", String(page));
+  if (tcg === "riftbound") params.set("tcg", tcg);
   const response = await fetch(`${serverApiUrl()}/api/me/library?${params}`, {
     headers: { authorization: `Bearer ${token}` },
     cache: "no-store",
@@ -84,11 +89,18 @@ export async function getTrades(page = 1) {
   };
 }
 
-export async function getSharedCollection(slug: string, query: ShareQuery) {
+export async function getSharedCollection(
+  slug: string,
+  query: ShareQuery,
+  tcg = "one-piece",
+) {
   const href = shareHref(slug, { ...query, view: undefined });
-  const search = href.includes("?") ? href.slice(href.indexOf("?")) : "";
+  const search = href.includes("?") ? href.slice(href.indexOf("?") + 1) : "";
+  const params = new URLSearchParams(search);
+  if (tcg === "riftbound") params.set("tcg", tcg);
+  const qs = params.toString();
   const response = await fetch(
-    `${serverApiUrl()}/api/share/${encodeURIComponent(slug)}${search}`,
+    `${serverApiUrl()}/api/share/${encodeURIComponent(slug)}${qs ? `?${qs}` : ""}`,
     { cache: "no-store" },
   ).catch(() => null);
   if (!response || response.status === 404) return null;

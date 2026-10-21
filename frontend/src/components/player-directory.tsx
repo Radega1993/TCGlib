@@ -2,13 +2,17 @@ import Link from "next/link";
 import { Pagination } from "@/components/pagination";
 import { PlayerSearch } from "@/components/player-search";
 import { formatCount } from "@/lib/format";
+import { gameProfile, GameSlug } from "@/lib/games";
 import { getPlayers } from "@/lib/players";
 
 export async function PlayerDirectory({
   searchParams,
+  game = "one-piece",
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
+  game?: GameSlug;
 }) {
+  const profile = gameProfile(game);
   const params = await searchParams;
   const q = first(params.q)?.trim().slice(0, 40) || undefined;
   const requested = Number(first(params.page) ?? 1);
@@ -16,7 +20,7 @@ export async function PlayerDirectory({
 
   let players: Awaited<ReturnType<typeof getPlayers>>;
   try {
-    players = await getPlayers({ q, page });
+    players = await getPlayers({ q, page, tcg: profile.slug });
   } catch {
     return (
       <p className="rounded-2xl bg-white px-4 py-8 text-sm text-stone-700 ring-1 ring-rose-200">
@@ -28,13 +32,13 @@ export async function PlayerDirectory({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <p className="text-sm text-stone-500">One Piece</p>
+        <p className="text-sm text-stone-500">{profile.name}</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight text-stone-950">Jugadores</h1>
         <p className="mt-2 max-w-2xl text-sm text-stone-600">
-          Primero salen los perfiles con más actividad. Al escribir aparecen hasta cinco coincidencias. El email no se muestra.
+          Primero salen los perfiles con más actividad en {profile.name}. Al escribir aparecen hasta cinco coincidencias. El email no se muestra.
         </p>
       </div>
-      <PlayerSearch initial={q ?? ""} />
+      <PlayerSearch initial={q ?? ""} game={profile.slug} directory={`${profile.base}/jugadores`} />
       {players.data.length === 0 ? (
         <p className="rounded-2xl bg-white px-4 py-10 text-center text-sm text-stone-600 ring-1 ring-stone-200">
           {q ? `Nadie público coincide con “${q}”.` : "Todavía no hay perfiles públicos."}
@@ -44,7 +48,7 @@ export async function PlayerDirectory({
           {players.data.map((player) => (
             <li key={player.slug}>
               <Link
-                href={`/u/${player.slug}`}
+                href={profile.publicPath(player.slug)}
                 className="flex items-center gap-3 rounded-2xl bg-white px-3 py-3 ring-1 ring-stone-200"
               >
                 {player.picture ? (
@@ -76,7 +80,7 @@ export async function PlayerDirectory({
           page={players.page}
           total={players.total}
           limit={players.limit}
-          hrefFor={(next) => playersHref(q, next)}
+          hrefFor={(next) => playersHref(q, next, profile.base)}
           label="Paginación de jugadores"
         />
       ) : null}
@@ -84,12 +88,13 @@ export async function PlayerDirectory({
   );
 }
 
-function playersHref(q: string | undefined, page: number) {
+function playersHref(q: string | undefined, page: number, base = "") {
   const params = new URLSearchParams();
   if (q) params.set("q", q);
   if (page > 1) params.set("page", String(page));
   const search = params.toString();
-  return search ? `/jugadores?${search}` : "/jugadores";
+  const path = `${base}/jugadores`;
+  return search ? `${path}?${search}` : path;
 }
 
 function first(value: string | string[] | undefined) {

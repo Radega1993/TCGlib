@@ -15,12 +15,18 @@ import { ProductCard } from "@/components/product-card";
 
 export async function CatalogBrowser({
   searchParams,
+  tcg = "one-piece",
+  base = "/",
+  title,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
+  tcg?: string;
+  base?: string;
+  title?: string;
 }) {
   const query = parseCatalogQuery(await searchParams);
 
-  const loaded = await loadCatalog(query);
+  const loaded = await loadCatalog(query, tcg);
   if (loaded.error) {
     return (
       <p className="rounded-2xl bg-white px-4 py-8 text-sm text-stone-700 ring-1 ring-rose-200">
@@ -32,14 +38,37 @@ export async function CatalogBrowser({
   }
 
   const { products, sets, stats, facets } = loaded;
-  const returnTo = catalogHref(query);
+  const returnTo = catalogHref(query, query.page, base);
+  const riftbound = tcg === "riftbound";
+  const productBase = riftbound ? "/riftbound/cartas" : "/products";
 
   return (
     <div className="flex flex-col gap-4">
+      {title ? (
+        <div>
+          <p className="text-sm text-stone-500">{title}</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-stone-950">Catálogo</h1>
+        </div>
+      ) : null}
       <p className="text-sm text-stone-600">
-        {formatCount(stats.data.cards)} cartas · {formatCount(stats.data.sets)} sets
+        {formatCount(stats.data.cards)} cartas · {formatCount(stats.data.sets)} {riftbound ? "colecciones" : "sets"}
       </p>
-      <Filters sets={sets.data} facets={facets.data} query={query} />
+      <Filters
+        sets={sets.data}
+        facets={facets.data}
+        query={query}
+        tcg={tcg}
+        catalogBase={base}
+        productBase={productBase}
+        searchPlaceholder={riftbound ? "Jinx, 030/298…" : "Luffy, OP03-070…"}
+        colorLabelText={riftbound ? "Dominio" : "Color"}
+        attributeLabelText={riftbound ? "Etiqueta" : "Atributo"}
+        costLabelText={riftbound ? "Energía" : "Coste"}
+        setLabelText={riftbound ? "Colección" : "Set"}
+        setPlaceholder={riftbound ? "Todas las colecciones" : "Todos los sets"}
+        editionSortLabel={riftbound ? "Colecciones" : "Ediciones"}
+        colorSortLabel={riftbound ? "Dominios" : "Colores"}
+      />
       <p className="text-sm text-stone-700">
         {formatCount(products.total)} {products.total === 1 ? "carta" : "cartas"}
         {query.q ? ` para “${query.q}”` : ""}
@@ -54,7 +83,7 @@ export async function CatalogBrowser({
             <li key={product.externalId}>
               <ProductCard
                 product={product}
-                href={productHref(product.externalId, returnTo)}
+                href={productHref(product.externalId, returnTo, productBase)}
               />
             </li>
           ))}
@@ -64,13 +93,13 @@ export async function CatalogBrowser({
         page={products.page}
         total={products.total}
         limit={products.limit}
-        hrefFor={(page) => catalogHref(query, page)}
+        hrefFor={(page) => catalogHref(query, page, base)}
       />
     </div>
   );
 }
 
-async function loadCatalog(query: CatalogQuery): Promise<
+async function loadCatalog(query: CatalogQuery, tcg: string): Promise<
   | {
       error: null;
       products: Paginated<Product>;
@@ -82,10 +111,10 @@ async function loadCatalog(query: CatalogQuery): Promise<
 > {
   try {
     const [products, sets, stats, facets] = await Promise.all([
-      getProducts(query),
-      getSets(),
-      getStats(),
-      getFacets(),
+      getProducts(query, tcg),
+      getSets(tcg),
+      getStats(tcg),
+      getFacets(tcg),
     ]);
     return { products, sets, stats, facets, error: null };
   } catch (error) {

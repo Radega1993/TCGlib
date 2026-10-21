@@ -3,9 +3,19 @@
 import { useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatCount } from "@/lib/format";
+import { gameProfile, GameSlug } from "@/lib/games";
 import { PublicPlayer } from "@/lib/players";
 
-export function PlayerSearch({ initial }: { initial: string }) {
+export function PlayerSearch({
+  initial,
+  game = "one-piece",
+  directory = "/jugadores",
+}: {
+  initial: string;
+  game?: GameSlug;
+  directory?: string;
+}) {
+  const profile = gameProfile(game);
   const router = useRouter();
   const listId = useId();
   const [text, setText] = useState(initial);
@@ -41,7 +51,7 @@ export function PlayerSearch({ initial }: { initial: string }) {
       setLoading(true);
       try {
         const response = await fetch(
-          `/api/players/suggest?q=${encodeURIComponent(term)}`,
+          `/api/players/suggest?q=${encodeURIComponent(term)}${game === "riftbound" ? "&tcg=riftbound" : ""}`,
           { signal: controller.signal },
         );
         const body = response.ok
@@ -60,7 +70,7 @@ export function PlayerSearch({ initial }: { initial: string }) {
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [open, term]);
+  }, [open, term, game]);
 
   useEffect(() => {
     if (active < 0) return;
@@ -74,18 +84,18 @@ export function PlayerSearch({ initial }: { initial: string }) {
 
   function openPlayer(player: PublicPlayer) {
     setOpen(false);
-    router.push(`/u/${player.slug}`);
+    router.push(profile.publicPath(player.slug));
   }
 
   return (
     <form
       className="relative"
-      action="/jugadores"
+      action={directory}
       onSubmit={(event) => {
         event.preventDefault();
         setOpen(false);
         const next = term;
-        router.push(next ? `/jugadores?q=${encodeURIComponent(next)}` : "/jugadores");
+        router.push(next ? `${directory}?q=${encodeURIComponent(next)}` : directory);
       }}
     >
       <label htmlFor={`${listId}-input`} className="sr-only">
@@ -161,7 +171,7 @@ export function PlayerSearch({ initial }: { initial: string }) {
                     id={`${listId}-${player.slug}`}
                     role="option"
                     aria-selected={index === active}
-                    href={`/u/${player.slug}`}
+                    href={profile.publicPath(player.slug)}
                     className={`flex items-center gap-3 px-3 py-2 ${
                       index === active ? "bg-rose-50" : "hover:bg-stone-50"
                     }`}

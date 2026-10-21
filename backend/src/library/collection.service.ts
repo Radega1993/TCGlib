@@ -29,9 +29,13 @@ type CachedCatalog = {
   cards: ClassifiedCard[];
 };
 
+function gameOf(value?: string) {
+  return value === 'riftbound' ? 'riftbound' : 'one-piece';
+}
+
 @Injectable()
 export class CollectionService {
-  private catalogCache: CachedCatalog | null = null;
+  private catalogs = new Map<string, CachedCatalog>();
 
   constructor(
     @InjectModel(LibraryEntry.name)
@@ -42,11 +46,12 @@ export class CollectionService {
     private readonly sets: SetsService,
   ) {}
 
-  async overview(userId: string) {
+  async overview(userId: string, tcg = 'one-piece') {
+    const game = gameOf(tcg);
     const [goal, cards, catalogSets, quantities] = await Promise.all([
       this.goalFor(userId),
-      this.catalog(),
-      this.sets.findAll(),
+      this.catalog(game),
+      this.sets.findAll(game),
       this.quantities(userId),
     ]);
     const slots = buildSlots(cards, goal, quantities);
@@ -90,11 +95,12 @@ export class CollectionService {
     externalId: string,
     view: CollectionView,
     page: number,
+    tcg = 'one-piece',
   ) {
     const set = await this.sets.findOne(externalId);
     const [goal, cards, quantities] = await Promise.all([
       this.goalFor(userId),
-      this.catalog(),
+      this.catalog(gameOf(tcg)),
       this.quantities(userId),
     ]);
     const mine = cards.filter((card) => card.setExternalId === externalId);
@@ -137,11 +143,11 @@ export class CollectionService {
     return goal;
   }
 
-  async addMissing(userId: string, externalId: string) {
+  async addMissing(userId: string, externalId: string, tcg = 'one-piece') {
     await this.sets.findOne(externalId);
     const [goal, cards, quantities] = await Promise.all([
       this.goalFor(userId),
-      this.catalog(),
+      this.catalog(gameOf(tcg)),
       this.quantities(userId),
     ]);
     const updates = wishlistPlan(
@@ -196,14 +202,13 @@ export class CollectionService {
     return quantities;
   }
 
-  private async catalog() {
+  private async catalog(tcg: string) {
     const now = Date.now();
-    if (this.catalogCache && this.catalogCache.expires > now) {
-      return this.catalogCache.cards;
-    }
-    const rows = await this.products.progressCards();
+    const cached = this.catalogs.get(tcg);
+    if (cached && cached.expires > now) return cached.cards;
+    const rows = await this.products.progressCards(tcg);
     const cards = classifyPrintings(rows.map(toCollectionCard));
-    this.catalogCache = { expires: now + CACHE_MS, cards };
+    this.catalogs.set(tcg, { expires: now + CACHE_MS, cards });
     return cards;
   }
 }
