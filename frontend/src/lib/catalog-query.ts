@@ -70,6 +70,18 @@ export function libraryHref(
   return search ? `${path}?${search}` : path;
 }
 
+export function libraryExportQuery(
+  list: "owned" | "wanted" | "trade",
+  query: CatalogQuery | undefined,
+  tcg = "one-piece",
+) {
+  const params = query ? filterParams(query, 1) : new URLSearchParams();
+  params.delete("page");
+  params.set("list", list);
+  if (tcg === "riftbound") params.set("tcg", tcg);
+  return params;
+}
+
 export function libraryApiQuery(
   list: LibraryList,
   query?: CatalogQuery,

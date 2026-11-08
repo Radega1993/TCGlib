@@ -26,6 +26,14 @@ export class LibraryController {
     return this.library.list(user.id, query);
   }
 
+  @Get('export')
+  exportList(
+    @CurrentUser() user: PublicUser,
+    @Query() query: ListLibraryQueryDto,
+  ) {
+    return this.library.exportText(user.id, query).then((data) => ({ data }));
+  }
+
   @Get('card/:externalId')
   card(
     @CurrentUser() user: PublicUser,

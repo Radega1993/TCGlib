@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { serverApiUrl } from "@/lib/api";
+import { libraryExportQuery } from "@/lib/catalog-query";
 import { readSessionToken } from "@/lib/session";
-import { LibraryList } from "@/lib/types";
+import { CatalogQuery, LibraryList } from "@/lib/types";
 
 export async function setCardQuantity(
   externalId: number,
@@ -125,4 +126,29 @@ async function shareRequest(path: string, method: "PUT" | "POST", body?: unknown
   };
   revalidatePath("/", "layout");
   return { ok: true as const, data: payload.data };
+}
+
+export async function copyLibrarySelection(
+  list: "owned" | "wanted" | "trade",
+  tcg: string,
+  query?: CatalogQuery,
+) {
+  if (list !== "owned" && list !== "wanted" && list !== "trade") {
+    return { ok: false as const };
+  }
+  const token = await readSessionToken();
+  if (!token) return { ok: false as const, error: "auth" as const };
+  const game = tcg === "riftbound" ? "riftbound" : "one-piece";
+  const params = libraryExportQuery(list, query, game);
+  const response = await fetch(`${serverApiUrl()}/api/me/library/export?${params}`, {
+    headers: { authorization: `Bearer ${token}` },
+    cache: "no-store",
+  }).catch(() => null);
+  if (!response) return { ok: false as const };
+  if (response.status === 401) return { ok: false as const, error: "auth" as const };
+  if (!response.ok) return { ok: false as const };
+  const body = (await response.json()) as { data?: { text?: string; lines?: number } };
+  const text = body.data?.text?.trim() ?? "";
+  if (!text) return { ok: false as const, error: "empty" as const };
+  return { ok: true as const, text, lines: body.data?.lines ?? 0 };
 }

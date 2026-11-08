@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { CopySelectionButton } from "@/components/copy-selection-button";
 import { LibraryAlbum } from "@/components/library-album";
 import { Pagination } from "@/components/pagination";
 import { TradeList } from "@/components/trade-list";
@@ -52,7 +53,10 @@ export async function TradeView({
           <TradeViewToggle view={view} page={trades.page} base={profile.base} />
         ) : null}
       </div>
-      <p className="text-sm text-stone-700">{collectionLabel(summary.cards, summary.copies)}</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-stone-700">{collectionLabel(summary.cards, summary.copies)}</p>
+        {trades.total > 0 ? <CopySelectionButton list="trade" tcg={profile.slug} /> : null}
+      </div>
       {trades.data.length === 0 ? (
         <div className="rounded-2xl bg-white px-4 py-10 text-center ring-1 ring-stone-200">
           <p className="text-sm text-stone-700">Todavía no has marcado copias para intercambio.</p>

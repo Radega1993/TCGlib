@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { CopySelectionButton } from "@/components/copy-selection-button";
 import { Filters } from "@/components/filters";
 import { LibraryAlbum } from "@/components/library-album";
 import { LibraryList } from "@/components/library-list";
@@ -55,15 +56,18 @@ export async function CollectionView({
         </div>
         {list === "owned" && hasCards ? <LibraryViewToggle view={layout} /> : null}
       </div>
-      <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-stone-700">{collectionLabel(summary.cards, summary.copies)}</p>
-        {list === "owned" && library.counts.trades.copies > 0 ? (
-          <p className="mt-1 text-sm text-stone-500">
-            {formatCount(Math.max(0, summary.copies - library.counts.trades.copies))} reservadas y{" "}
-            {formatCount(library.counts.trades.copies)} en intercambio. El total las incluye.
-          </p>
+        {library.total > 0 ? (
+          <CopySelectionButton list={list} tcg={profile.slug} query={query} />
         ) : null}
       </div>
+      {list === "owned" && library.counts.trades.copies > 0 ? (
+        <p className="text-sm text-stone-500">
+          {formatCount(Math.max(0, summary.copies - library.counts.trades.copies))} reservadas y{" "}
+          {formatCount(library.counts.trades.copies)} en intercambio. El total las incluye.
+        </p>
+      ) : null}
       <Filters
         sets={library.sets}
         facets={library.facets}

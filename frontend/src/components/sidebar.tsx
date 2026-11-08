@@ -54,9 +54,10 @@ export function Sidebar({
   return (
     <aside
       id="app-sidebar"
-      className={`${open ? "max-md:translate-x-0" : "max-md:-translate-x-full"} fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-stone-200 bg-[#f6f3ee] px-3 py-4 transition-transform md:sticky md:top-0 md:z-auto md:h-screen md:w-full`}
+      data-open={open ? "true" : "false"}
+      className="fixed inset-y-0 left-0 z-40 flex h-dvh max-h-dvh w-72 min-h-0 flex-col overflow-hidden border-r border-stone-200 bg-[#f6f3ee] px-3 py-4 transition-[translate] duration-200 md:sticky md:top-0 md:z-auto md:h-screen md:max-h-screen md:w-full md:translate-none"
     >
-      <div className="flex items-center justify-between px-2">
+      <div className="flex shrink-0 items-center justify-between px-2">
         <Link href={riftbound ? "/riftbound" : "/"} className="block min-w-0 px-1" onClick={onClose}>
           <Image
             src="/logo-mark.png"
@@ -76,7 +77,8 @@ export function Sidebar({
         </button>
       </div>
 
-      <p className="mt-6 px-2 text-xs font-medium uppercase tracking-wide text-stone-500">
+      <div className="mt-6 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]">
+      <p className="px-2 text-xs font-medium uppercase tracking-wide text-stone-500">
         Juegos
       </p>
       <Link
@@ -149,6 +151,7 @@ export function Sidebar({
           />
         </div>
       ) : null}
+      </div>
     </aside>
   );
 }

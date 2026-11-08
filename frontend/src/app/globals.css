@@ -17,3 +17,13 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), sans-serif;
 }
+
+@media (max-width: 767px) {
+  #app-sidebar {
+    translate: -100% 0;
+  }
+
+  #app-sidebar[data-open="true"] {
+    translate: 0 0;
+  }
+}

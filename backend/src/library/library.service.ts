@@ -34,6 +34,44 @@ export class LibraryService {
     private readonly products: ProductsService,
   ) {}
 
+  async exportText(userId: string, query: ListLibraryQueryDto) {
+    const owner = new Types.ObjectId(userId);
+    const lists = await this.listsFor(owner, gameOf(query.tcg));
+    const rows =
+      query.list === 'trade'
+        ? lists.owned.flatMap((row) => {
+            const available = availableCopies(row.quantity, row.forTrade ?? 0);
+            if (available <= 0) return [];
+            return [{ productExternalId: row.productExternalId, quantity: available }];
+          })
+        : query.list === 'wanted'
+          ? lists.wanted
+          : lists.owned;
+    const cards = await this.products.matchingCodes(
+      rows.map((row) => row.productExternalId),
+      toCardFilter(query),
+    );
+    const quantities = new Map(
+      rows.map((row) => [row.productExternalId, row.quantity]),
+    );
+    const totals = new Map<string, number>();
+    const order: string[] = [];
+    let skipped = 0;
+    for (const card of cards) {
+      const quantity = quantities.get(card.externalId) ?? 0;
+      if (quantity <= 0) continue;
+      const code = card.code?.trim();
+      if (!code) {
+        skipped += 1;
+        continue;
+      }
+      if (!totals.has(code)) order.push(code);
+      totals.set(code, (totals.get(code) ?? 0) + quantity);
+    }
+    const lines = order.map((code) => `${totals.get(code)}x${code}`);
+    return { text: lines.join('\n'), lines: lines.length, skipped };
+  }
+
   async list(userId: string, query: ListLibraryQueryDto) {
     if (query.list === 'trade') return this.listTrades(userId, query);
     const list = query.list ?? 'owned';

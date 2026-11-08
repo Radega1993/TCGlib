@@ -263,6 +263,23 @@ export class ProductsService {
     return { products, matchedIds, page: current, limit };
   }
 
+  async matchingCodes(externalIds: number[], query: ProductFilterInput) {
+    if (externalIds.length === 0) return [];
+    const filter = buildProductFilter({ ...query, type: 'card' as const });
+    filter.externalId = { $in: externalIds };
+    const rows = await this.sliceProducts(
+      filter,
+      query.sort ?? 'set',
+      1,
+      externalIds.length,
+      'externalId code',
+    );
+    return rows.map((row) => ({
+      externalId: row.externalId as number,
+      code: typeof row.code === 'string' ? row.code : undefined,
+    }));
+  }
+
   async facetsForExternalIds(externalIds: number[]) {
     if (externalIds.length === 0) {
       return emptyFacets();
